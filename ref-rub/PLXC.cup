@@ -1,0 +1,496 @@
+import java_cup.runtime.*;
+import java.util.Vector;
+import java.util.ArrayList;
+
+action code {:
+	String tab = "   ";
+	TablaSimbolos tabla = new TablaSimbolos();
+
+	Tipado tipo;
+
+	int length = 0;
+
+	class ParEtiquetas {
+		public String eV, eF;
+		public ParEtiquetas(String eV, String eF){
+			this.eV = eV;
+			this.eF = eF;
+		}
+	}
+:};
+
+terminal String ASIG;
+terminal String MAS, MENOS, MENOSUNARIO;
+terminal String POR, ENTRE;
+terminal String Y, O, NEGADO;
+terminal String IGUAL, DIFERENTE, MENOR, MAYOR, MENOR_IGUAL, MAYOR_IGUAL;
+terminal String AP, CP, AC, CC, ALL, CLL;
+terminal String PUNTO, COMA, PYC;
+terminal String PRINT;
+terminal String LENGTH;
+terminal String IF, ELSE, DO, WHILE, FOR;
+terminal String IDENT, ENTERO, REAL, ASCII;
+terminal String INT, FLOAT, CHAR, STRING;
+terminal String COMILLA_SIMPLE, COMILLA_DOBLE;
+
+non terminal String Lista_de_sent, Sentencia;
+non terminal Objeto Expresion, ExpresionEpsilon;
+non terminal ParEtiquetas Condicion;
+non terminal String IfElse;
+non terminal String Etiqueta;
+non terminal String DeclararVariables, Tipo, Inicializacion;
+non terminal Objeto Declaracion;
+non terminal String ArrayDefinicion;
+non terminal Objeto Array, ArrayConstante, ListaConstante;
+non terminal Objeto ListaCaracteres;
+
+precedence left IF, ELSE, DO, WHILE, FOR, PRINT;
+precedence right ASIG;
+precedence left MAS, MENOS;
+precedence left POR, ENTRE;
+precedence left IGUAL, MENOR_IGUAL, MAYOR_IGUAL;
+precedence left DIFERENTE, MENOR, MAYOR;
+precedence left O;
+precedence left Y;
+precedence left NEGADO;
+precedence left IDENT, ENTERO, REAL, ASCII;
+precedence nonassoc MENOSUNARIO;
+precedence nonassoc AP, CP;
+precedence nonassoc AC, CC;
+
+Lista_de_sent ::=
+	Sentencia
+|	Lista_de_sent Sentencia
+;
+
+Sentencia ::=
+	Expresion PYC
+|	PRINT AP Expresion:e1 CP PYC {:
+		e1.metodosInstancia(tabla, Metodos.PRINT, null);
+	:}
+|	PRINT AP ArrayConstante:e1 CP PYC {:
+		e1.metodosInstancia(tabla, Metodos.PRINT, null);
+	:}
+|	ALL {:
+		tabla.getAmbito().entrarBloque();
+	:}
+	Lista_de_sent
+	CLL {:
+		int bloque = tabla.getAmbito().getBloque();
+		tabla.borrarAmbito(bloque);
+		tabla.getAmbito().salirBloque();
+	:}
+|	IF AP Condicion:c CP Etiqueta:eS {:
+		PLXC.out.printf("%s:\n", c.eV);			// VERDADERO
+	:}
+	Sentencia {:
+		PLXC.out.printf(tab+"goto %s;\n", eS);	// SALTO A SALIDA
+		PLXC.out.printf("%s:\n", c.eF);			// FALSO
+	:}
+	IfElse {:
+		PLXC.out.printf("%s:\n", eS);			// SALIDA
+	:}
+|	WHILE Etiqueta:eI {:
+		PLXC.out.printf("%s:\n", eI);			// INICIO
+	:} AP Condicion:c CP {:
+		PLXC.out.printf("%s:\n", c.eV);			// VERDADERO
+	:}
+	Sentencia {:
+		PLXC.out.printf(tab+"goto %s;\n", eI);	// VUELTA A CONDICION
+		PLXC.out.printf("%s:\n", c.eF);			// FALSO -> SALIDA
+	:}
+|	DO Etiqueta:eI {:
+		PLXC.out.printf("%s:\n", eI);			// INICIO
+	:}
+	Sentencia WHILE AP Condicion:c CP PYC {:
+		PLXC.out.printf("%s:\n", c.eV);			// VERDADERO
+		PLXC.out.printf(tab+"goto %s;\n", eI);	// VUELTA A CONDICION
+		PLXC.out.printf("%s:\n", c.eF);			// FALSO -> SALIDA
+	:}
+|	FOR AP ExpresionEpsilon PYC Etiqueta:eC{:
+		PLXC.out.printf("%s:\n", eC);			// CONDICION
+	:}
+	Condicion:c PYC  Etiqueta:eA {:
+		PLXC.out.printf("%s:\n", eA);			// ACTUALIZAR
+	:}
+	ExpresionEpsilon CP {:
+		PLXC.out.printf(tab+"goto %s;\n", eC);	// VUELTA A CODICION
+		PLXC.out.printf("%s:\n", c.eV);			// VERDADERO
+	:}
+	Sentencia {:
+		PLXC.out.printf(tab+"goto %s;\n", eA);	// VUELTA A ACTUALIZAR
+		PLXC.out.printf("%s:\n", c.eF);			// FALSO -> SALIDA
+	:}
+|	DeclararVariables PYC
+;
+
+DeclararVariables ::=
+	Tipo Inicializacion
+|	DeclararVariables COMA Inicializacion
+;
+
+Tipo ::=
+	INT 		{: tipo = Tipado.INT; :}
+|	FLOAT 		{: tipo = Tipado.FLOAT; :}
+|	CHAR 		{: tipo = Tipado.CHAR; :}
+|	STRING	 	{: tipo = Tipado.STRING; :}
+;
+
+Inicializacion ::=
+	Declaracion
+|	Declaracion:var ASIG Expresion:e {:
+		Objeto o = tabla.obtenerVariable(var.toString());
+		Vector<Objeto> v = new Vector<>();
+		v.add(e);
+		o.metodosInstancia(tabla, Metodos.ASIGNACION, v);
+	:}
+|	Declaracion:var ASIG ArrayConstante:a {:
+		Objeto o = tabla.obtenerVariable(var.toString());
+		Vector<Objeto> v = new Vector<>();
+		v.add(a);
+		o.metodosInstancia(tabla, Metodos.ASIGNACION, v);
+	:}
+;
+
+Declaracion ::=
+	IDENT:nombre {:
+		Objeto o = null;
+		switch (tipo) {
+			case INT:
+				o = new ObjetoInt(nombre, tabla.getAmbito().getBloque(), Valor.VARIABLE);
+				break;
+			case FLOAT:
+				o = new ObjetoFloat(nombre, tabla.getAmbito().getBloque(), Valor.VARIABLE);
+				break;
+			case CHAR:
+				o = new ObjetoChar(nombre, tabla.getAmbito().getBloque(), Valor.VARIABLE);
+				break;
+			case STRING:
+				o = new ObjetoString(nombre, tabla.getAmbito().getBloque(), Valor.VARIABLE);
+				break;
+		}
+		tabla.declararVariable(o);
+		
+		RESULT = tabla.obtenerVariable(nombre);
+	:}
+|	IDENT:nombre ArrayDefinicion:a {:
+		Objeto o = null;
+		int dimension = Integer.parseInt(a);
+		switch (tipo) {
+			case INT:
+				o = new ObjetoArrayInt(nombre, tabla.getAmbito().getBloque(), dimension, Valor.VARIABLE);
+				break;
+			case FLOAT:
+				o = new ObjetoArrayFloat(nombre, tabla.getAmbito().getBloque(), dimension, Valor.VARIABLE);
+				break;
+			case CHAR:
+				o = new ObjetoArrayChar(nombre, tabla.getAmbito().getBloque(), dimension, Valor.VARIABLE);
+				break;
+		}
+		tabla.declararVariable(o);
+
+		Objeto res = tabla.obtenerVariable(nombre);
+		
+		res.metodosInstancia(tabla, Metodos.DEFINIR_LENGTH, null);
+
+		RESULT = res;
+	:}
+;
+
+ArrayDefinicion ::=
+	AC ENTERO:e CC {:
+		RESULT = e;
+	:}
+;
+
+Array ::=
+	AC Expresion:e CC {:
+		if (e.getTipo() != Tipado.INT) {
+			PLXC.out.println("# ERROR: El indice de un array debe ser entero");
+			PLXC.out.println("   error;");
+			PLXC.out.println("   halt;");
+			System.exit(0);
+		}
+		RESULT = e;
+	:}
+;
+
+IfElse ::=
+	{: /*Epsilon*/ :}
+|	ELSE Sentencia
+;
+
+ExpresionEpsilon ::=
+	{: /*Epsiolon*/ :}
+|	Expresion
+;
+
+Etiqueta ::=
+	{: RESULT = tabla.getEtiqueta(); :}
+;
+
+Expresion ::=
+	Expresion:e1 MAS Expresion:e2 {:
+		Vector<Objeto> v = new Vector<>();
+		v.add(e2);
+		RESULT = e1.metodosInstancia(tabla, Metodos.SUMA, v);
+	:}
+|	Expresion:e1 MENOS Expresion:e2 {:
+		Vector<Objeto> v = new Vector<>();
+		v.add(e2);
+		RESULT = e1.metodosInstancia(tabla, Metodos.RESTA, v);
+	:}
+|	Expresion:e1 POR Expresion:e2 {:
+		Vector<Objeto> v = new Vector<>();
+		v.add(e2);
+		RESULT = e1.metodosInstancia(tabla, Metodos.MULTIPLICACION, v);
+	:}
+|	Expresion:e1 ENTRE Expresion:e2 {:
+		Vector<Objeto> v = new Vector<>();
+		v.add(e2);
+		RESULT = e1.metodosInstancia(tabla, Metodos.DIVISION, v);
+	:}
+|	MENOS Expresion:e1 {:
+		RESULT = e1.metodosInstancia(tabla, Metodos.MENOSUNARIO, null);
+	:}
+	%prec MENOSUNARIO
+|	AP Expresion:e1 CP {:
+		RESULT = e1;
+	:}
+|	IDENT:i ASIG Expresion:e {:
+		Objeto variable = tabla.obtenerVariable(i);
+		
+		Vector<Objeto> v = new Vector<>();
+		v.add(e);
+		RESULT = variable.metodosInstancia(tabla, Metodos.ASIGNACION, v);
+	:}
+|	IDENT:i ASIG ArrayConstante:a {:
+		Objeto variable = tabla.obtenerVariable(i);
+		
+		Vector<Objeto> v = new Vector<>();
+		v.add(a);
+		RESULT = variable.metodosInstancia(tabla, Metodos.ASIGNACION, v);
+	:}
+|	IDENT:i Array:indice ASIG Expresion:e {:
+		Objeto variable = tabla.obtenerVariable(i);
+
+		Vector<Objeto> v = new Vector<>();
+		
+		v.add(indice);
+		variable.metodosInstancia(tabla, Metodos.COMPROBAR_DIMENSION, v);
+
+		v.add(e);
+
+		RESULT = variable.metodosInstancia(tabla, Metodos.ASIGNACION_INDICE, v);
+	:}
+|	IDENT:i {:
+		Objeto variable = tabla.obtenerVariable(i);
+
+		RESULT = variable;
+	:}
+|	IDENT:i Array:indice {:
+		Objeto variable = tabla.obtenerVariable(i);
+
+		Vector<Objeto> v = new Vector<>();
+		v.add(indice);
+		variable.metodosInstancia(tabla, Metodos.COMPROBAR_DIMENSION, v);
+		variable = variable.metodosInstancia(tabla, Metodos.DEVOLVER_ARRAY, v);
+		
+		RESULT = variable;
+	:}
+|	ENTERO:n {:
+		String nombre = n;
+		int bloque = tabla.getAmbito().getBloque();
+		Valor valor = Valor.CONSTANTE;
+		RESULT = new ObjetoInt(nombre, bloque, valor);
+	:}
+|	REAL:r {:
+		String nombre = r;
+		int bloque = tabla.getAmbito().getBloque();
+		Valor valor = Valor.CONSTANTE;
+		RESULT = new ObjetoFloat(nombre, bloque, valor);
+	:}
+|	COMILLA_SIMPLE ASCII:c COMILLA_SIMPLE {:
+		RESULT = new ObjetoChar(c, tabla.getAmbito().getBloque(), Valor.CONSTANTE);
+	:}
+|	COMILLA_DOBLE ListaCaracteres:l COMILLA_DOBLE {:
+		l.metodosInstancia(tabla, Metodos.LENGTH_CONSTANTE, null);
+
+		RESULT = l;
+	:}
+|	AP INT CP Expresion:e {:
+		RESULT = e.metodosInstancia(tabla, Metodos.CAST_INT, null);
+	:}
+|	AP FLOAT CP Expresion:e {:
+		RESULT = e.metodosInstancia(tabla, Metodos.CAST_FLOAT, null);
+	:}
+|	AP CHAR CP Expresion:e {:
+		RESULT = e.metodosInstancia(tabla, Metodos.CAST_CHAR, null);
+	:}
+|	IDENT:i PUNTO LENGTH {:
+		Objeto variable = tabla.obtenerVariable(i);
+		RESULT = variable.metodosInstancia(tabla, Metodos.MOSTRAR_LENGTH, null);
+	:}
+;
+
+ListaCaracteres ::=
+	{: /* EPSILON */
+		RESULT = new ObjetoString(tabla.getTemporal(), tabla.getAmbito().getBloque(), Valor.TEMPORAL);
+	:}
+|	ListaCaracteres:l ASCII:c {:
+		Vector<Objeto> v = new Vector<>();
+		Objeto ch = new ObjetoChar(c, tabla.getAmbito().getBloque(), Valor.CONSTANTE);
+		v.add(ch);
+		l.metodosInstancia(tabla, Metodos.STRING_CONSTANTE, v);
+
+		RESULT = l;
+	:}
+;
+
+ArrayConstante ::=
+	ALL ListaConstante:l CLL {:
+		RESULT = l;
+	:}
+;
+
+ListaConstante ::=
+	Expresion:e {:
+		Objeto constante = null;
+		switch (e.getTipo()) {
+			case INT:
+				constante = new ObjetoArrayInt(tabla.getTemporal(), tabla.getAmbito().getBloque(), 1, Valor.CONSTANTE);
+				break;
+			case FLOAT:
+				constante = new ObjetoArrayFloat(tabla.getTemporal(), tabla.getAmbito().getBloque(), 1, Valor.CONSTANTE);
+				break;
+			case CHAR:
+				constante = new ObjetoArrayChar(tabla.getTemporal(), tabla.getAmbito().getBloque(), 1, Valor.CONSTANTE);
+				break;
+			default:
+				PLXC.out.println("# ERROR: El tipo "+e.getTipo().name()+" no se puede asignar a una lista constante.");
+				PLXC.out.println("   error;");
+				PLXC.out.println("   halt;");
+				System.exit(0);
+				break;
+		}
+		PLXC.out.println("   "+constante+"["+(((ObjetoArray) constante).getDimension()-1)+"] = "+e+";");
+		RESULT = constante;
+	:}
+|	ListaConstante:l COMA Expresion:e {:
+		Objeto constante = null;
+		switch (l.getTipo()) {
+			case ARRAY_INT: {
+					switch (e.getTipo()) {
+						case INT:
+							constante = new ObjetoArrayInt(l.getNombre(), l.getAmbito(), ((ObjetoArray) l).getDimension() + 1, Valor.CONSTANTE);
+							break;
+						default:
+							PLXC.out.println("# ERROR: El tipo "+e.getTipo().name()+" no se puede asignar a una lista constante de tipo "+l.getTipo().name());
+							PLXC.out.println("   error;");
+							PLXC.out.println("   halt;");
+							System.exit(0);
+							break;
+					}
+				}
+				break;
+			case ARRAY_FLOAT: {
+					switch (e.getTipo()) {
+						case FLOAT:
+							constante = new ObjetoArrayFloat(l.getNombre(), l.getAmbito(), ((ObjetoArray) l).getDimension() + 1, Valor.CONSTANTE);
+							break;
+						default:
+							PLXC.out.println("# ERROR: El tipo "+e.getTipo().name()+" no se puede asignar a una lista constante de tipo "+l.getTipo().name());
+							PLXC.out.println("   error;");
+							PLXC.out.println("   halt;");
+							System.exit(0);
+							break;
+					}
+				}
+				break;
+			case ARRAY_CHAR: {
+					switch (e.getTipo()) {
+						case CHAR:
+							constante = new ObjetoArrayChar(l.getNombre(), l.getAmbito(), ((ObjetoArray) l).getDimension() + 1, Valor.CONSTANTE);
+							break;
+						default:
+							PLXC.out.println("# ERROR: El tipo "+e.getTipo().name()+" no se puede asignar a una lista constante de tipo "+l.getTipo().name());
+							PLXC.out.println("   error;");
+							PLXC.out.println("   halt;");
+							System.exit(0);
+							break;
+					}
+				}
+				break;
+			default:
+				PLXC.out.println("# ERROR: El tipo "+l.getTipo().name()+" no se esta permitido para una lista constante.");
+				PLXC.out.println("   error;");
+				PLXC.out.println("   halt;");
+				System.exit(0);
+				break;
+		}
+		PLXC.out.println("   "+constante+"["+(((ObjetoArray) constante).getDimension()-1)+"] = "+e+";");
+		RESULT = constante;
+	:}
+;
+
+Condicion ::=
+	Expresion:e1 IGUAL Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s == %s) goto %s;\n", e1, e2, pe.eV);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eF);
+		RESULT = pe;
+	:}
+|	Expresion:e1 DIFERENTE Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s == %s) goto %s;\n", e1, e2, pe.eF);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eV);
+		RESULT = pe;
+	:}
+|	Expresion:e1 MENOR Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s < %s) goto %s;\n", e1, e2, pe.eV);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eF);
+		RESULT = pe;
+	:}
+|	Expresion:e1 MENOR_IGUAL Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s < %s) goto %s;\n", e2, e1, pe.eF);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eV);
+		RESULT = pe;
+	:}
+|	Expresion:e1 MAYOR Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s < %s) goto %s;\n", e2, e1, pe.eV);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eF);
+		RESULT = pe;
+	:}
+|	Expresion:e1 MAYOR_IGUAL Expresion:e2 {:
+		ParEtiquetas pe = new ParEtiquetas(tabla.getEtiqueta(), tabla.getEtiqueta());
+		PLXC.out.printf(tab+"if (%s < %s) goto %s;\n", e1, e2, pe.eF);
+		PLXC.out.printf(tab+"goto %s;\n", pe.eV);
+		RESULT = pe;
+	:}
+|	NEGADO Condicion:c {:
+		ParEtiquetas pe = new ParEtiquetas(c.eF, c.eV);
+		RESULT = pe;
+	:}
+|	Condicion:c1 Y {:
+		PLXC.out.printf("%s:\n", c1.eV);
+	:}
+	Condicion:c2 {:
+		PLXC.out.printf("%s:\n", c1.eF);
+		PLXC.out.printf(tab+"goto %s;\n", c2.eF);
+		RESULT = c2;
+	:}
+|	Condicion:c1 O {:
+		PLXC.out.printf("%s:\n", c1.eF);
+	:}
+	Condicion:c2 {:
+		PLXC.out.printf("%s:\n", c1.eV);
+		PLXC.out.printf(tab+"goto %s;\n", c2.eV);
+		RESULT = c2;
+	:}
+|	AP Condicion:c CP {:
+		RESULT = c;
+	:}
+;

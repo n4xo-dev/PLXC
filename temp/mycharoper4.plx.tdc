@@ -1,0 +1,10 @@
+ch1 = 43 ;
+ch2 = 42 ;
+t0 = 10 + ch1 ;
+t1 = t0 - ch2 ;
+print t1 ;
+
+
+# ********VARIABLES********
+#	T(char,ch1)
+#	T(char,ch2)

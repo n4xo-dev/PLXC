@@ -1,0 +1,15 @@
+   $t0[0] = 97;
+   $t0[1] = 92;
+   $t0[2] = 99;
+   $$t0_length = 3;
+   $t1 = 0;
+L0:
+   if ($t1 < $$t0_length) goto L1;
+   goto L2;
+L1:
+   $t2 = $t0[$t1];
+   writec $t2;
+   $t1 = $t1 + 1;
+   goto L0;
+L2:
+   writec 10;

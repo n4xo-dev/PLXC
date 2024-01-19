@@ -1,0 +1,17 @@
+x = 6 ;
+y = 2 ;
+q = 2 ;
+p = q ;
+t0 = p + q ;
+zeta = t0 ;
+t1 = x / y ;
+t2 = zeta + t1 ;
+print t2 ;
+
+
+# ********VARIABLES********
+#	T(int,x)
+#	T(int,y)
+#	T(int,zeta)
+#	T(int,p)
+#	T(int,q)

@@ -1,0 +1,18 @@
+t0 =  (int) 65 ;
+a = t0 ;
+t1 =  (int) 67 ;
+c = t1 ;
+t2 =  (int) c ;
+t3 = a + t2 ;
+t4 =  (int) t3 ;
+t5 = t4 / 2 ;
+b = t5 ;
+print a ;
+printc b ;
+print c ;
+
+
+# ********VARIABLES********
+#	T(int,a)
+#	T(int,b)
+#	T(int,c)

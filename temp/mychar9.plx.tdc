@@ -1,0 +1,12 @@
+a = 88 ;
+b = 89 ;
+c = 90 ;
+printc a ;
+printc b ;
+printc c ;
+
+
+# ********VARIABLES********
+#	T(char,a)
+#	T(char,b)
+#	T(char,c)

@@ -1,0 +1,9 @@
+x = 67 ;
+a = x ;
+print x ;
+printc a ;
+
+
+# ********VARIABLES********
+#	T(char,a)
+#	T(int,x)

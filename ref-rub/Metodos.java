@@ -1,0 +1,19 @@
+public enum Metodos {
+	PRINT,					// Todos
+	SUMA,					// Muchos
+	RESTA,					// Muchos
+	MULTIPLICACION,			// Numericos
+	DIVISION,				// Numercos
+	MENOSUNARIO,			// Numericos
+	ASIGNACION,				// Todos
+	CAST_INT,				// No INT
+	CAST_FLOAT,				// No FLOAT
+	CAST_CHAR,				// NO CHAR
+	DEFINIR_LENGTH,			// ARRAYS
+	MOSTRAR_LENGTH,			// ARRAYS
+	COMPROBAR_DIMENSION,	// ARRAYS
+	DEVOLVER_ARRAY,			// ARRAYS
+	ASIGNACION_INDICE,		// ARRAYS
+	STRING_CONSTANTE,		// STRING
+	LENGTH_CONSTANTE		// STRING
+}

@@ -1,0 +1,9 @@
+a = 48 ;
+b = 49 ;
+printc a ;
+printc b ;
+
+
+# ********VARIABLES********
+#	T(char,a)
+#	T(char,b)

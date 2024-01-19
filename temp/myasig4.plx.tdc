@@ -1,0 +1,16 @@
+t0 = alfa + 1 ;
+t1 = beta + 2 ;
+t2 = t0 * t1 ;
+t3 = 3 + t2 ;
+beta = t3 ;
+alfa = beta ;
+t4 = 2 * alfa ;
+t5 = t4 - beta ;
+delta = t5 ;
+print delta ;
+
+
+# ********VARIABLES********
+#	T(int,alfa)
+#	T(int,beta)
+#	T(int,delta)

@@ -1,0 +1,90 @@
+import java_cup.runtime.*;
+import java.lang.String;
+import java.util.HashMap;
+import java.util.ArrayList;
+
+parser code {:
+	public void syntax_error(Symbol cur_token){
+	}
+
+	public void unrecovered_syntax_error(Symbol cur_token){
+		System.err.println( "Syntax error:"  );
+		// report_error("Syntax error", null);
+		done_parsing();
+	}
+:};
+
+// Terminales
+terminal String SEMICOLON, COMA;
+terminal String O_PAR, C_PAR, O_CURL, C_CURL, O_BRACK, C_BRACK;
+terminal String PLUS, MINUS, MULT, DIV, MOD, MINUS_SIGN;
+terminal String PLUS_PLUS, MINUS_MINUS;
+terminal String PLUS_EQ, MINUS_EQ, MULT_EQ, DIV_EQ, MOD_EQ;
+terminal String ASSIGN, EQ, NEQ, GT, LT, GTE, LTE;
+terminal String AND, OR, NOT, AMPERSAND;
+terminal String QUESTION, COLON, ELVIS;
+terminal String DOT;
+terminal String IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, RETURN;
+terminal String INT, FLOAT, CHAR, STRING;
+terminal String CAST_INT, CAST_FLOAT, CAST_CHAR;
+terminal String ID, INT_CONST, FLOAT_CONST, CHAR_CONST, STRING_CONST;
+terminal String PRINT;
+terminal String LENGTH;
+
+// No-Terminales
+non terminal String sentenceList, sentence;
+non terminal expression;
+non terminal condition;
+non terminal operator;
+
+// Precedencias
+precedence left IF, ELSE;
+precedence left ASSIGN;
+precedence left ELVIS;
+precedence left PLUS, MINUS;
+precedence left MULT, DIV, MOD;
+precedence left NEQ, GT, LT, GTE, LTE;
+precedence left OR;
+precedence left AND;
+precedence left NOT, AMPERSAND;
+precedence left PLUS_PLUS, MINUS_MINUS;
+precedence left PLUS_EQ, MINUS_EQ, MULT_EQ, DIV_EQ, MOD_EQ;
+precedence nonassoc MINUS_SIGN;
+precedence nonassoc O_PAR, C_PAR;
+precedence nonassoc O_BRACK, C_BRACK;
+
+
+// Gramática
+sentenceList ::= sentence
+  | sentenceList sentence
+  ;
+
+sentence ::= expression SEMICOLON
+  | IF O_PAR condition C_PAR sentence
+  | IF O_PAR condition C_PAR sentence ELSE sentence
+  | WHILE O_PAR condition C_PAR sentence
+  | DO sentence WHILE O_PAR condition C_PAR SEMICOLON
+  | FOR O_PAR expression SEMICOLON condition SEMICOLON expression C_PAR sentence
+  | PRINT O_PAR expression C_PAR SEMICOLON
+  | O_CURL sentenceList C_CURL
+  ;
+
+expression ::= expression operator expression
+  | MINUS_SIGN expression %prec MINUS_SIGN
+  | O_PAR expression C_PAR
+  | ID ASSIGN expression
+  | ID
+  | INT_CONST
+  ;
+
+condition ::= expression EQ expression
+  | expression NEQ expression
+  | expression GT expression
+  | expression LT expression
+  | expression GTE expression
+  | expression LTE expression
+  | NOT condition
+  | condition OR condition
+  | condition AND condition
+  | O_PAR condition C_PAR
+  ;
