@@ -9,12 +9,12 @@ import { execSync } from 'child_process';
   }
   console.log("BUILD:");
   try {
-    execSync("rm ./src/*.class ./src/Yylex.java ./src/sym.java ./src/parser.java", );
+    execSync(`cd ./${target}; rm *.class Yylex.java sym.java parser.java`, );
   } catch (err) {};
   try {
-    execSync(`jflex ./src/${target}.flex`);
-    execSync(`cup ./src/${target}.cup`);
-    execSync("javac ./src/*.java");
+    execSync(`cd ./${target}; jflex PLXC.flex`);
+    execSync(`cd ./${target}; cup PLXC.cup`);
+    execSync(`cd ./${target}; javac *.java`);
   } catch (err) {
     console.error(err.stderr.toString());
     console.log(err.stdout.toString());
