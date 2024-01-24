@@ -14,6 +14,11 @@ parser code {:
 	}
 :};
 
+action code {:
+  String tab = "   ";
+  SymTable table = new SymTable();
+:};
+
 // Terminales
 terminal String SEMICOLON, COMA;
 terminal String O_PAR, C_PAR, O_CURL, C_CURL, O_BRACK, C_BRACK;
@@ -33,7 +38,7 @@ terminal String LENGTH;
 
 // No-Terminales
 non terminal String sentenceList, sentence;
-non terminal expression;
+non terminal String expression;
 non terminal condition;
 non terminal operator;
 
@@ -65,16 +70,49 @@ sentence ::= expression SEMICOLON
   | WHILE O_PAR condition C_PAR sentence
   | DO sentence WHILE O_PAR condition C_PAR SEMICOLON
   | FOR O_PAR expression SEMICOLON condition SEMICOLON expression C_PAR sentence
-  | PRINT O_PAR expression C_PAR SEMICOLON
+  | PRINT O_PAR expression:e C_PAR SEMICOLON {:
+    PLXC.out.printf("%sprint %s;\n", tab, e);
+  :}
   | O_CURL sentenceList C_CURL
   ;
 
-expression ::= expression operator expression
-  | MINUS_SIGN expression %prec MINUS_SIGN
-  | O_PAR expression C_PAR
-  | ID ASSIGN expression
-  | ID
-  | INT_CONST
+expression ::= expression:e1 PLUS expression:e2 {:
+    String temp = table.newTemp();
+    PLXC.out.printf("%s%s = %s + %s;\n", tab, temp, e1, e2);
+    RESULT = temp;
+  :}
+  | expression:e1 MINUS expression:e2 {:
+    String temp = table.newTemp();
+    PLXC.out.printf("%s%s = %s - %s;\n", tab, temp, e1, e2);
+    RESULT = temp;
+  :}
+  | expression:e1 MULT expression:e2 {:
+    String temp = table.newTemp();
+    PLXC.out.printf("%s%s = %s * %s;\n", tab, temp, e1, e2);
+    RESULT = temp;
+  :}
+  | expression:e1 DIV expression:e2 {:
+    String temp = table.newTemp();
+    PLXC.out.printf("%s%s = %s / %s;\n", tab, temp, e1, e2);
+    RESULT = temp;
+  :}
+  | MINUS expression:e {:
+    String temp = table.newTemp();
+    PLXC.out.printf("%s%s = -%s;\n", tab, temp, e);
+    RESULT = temp;
+  :} %prec MINUS_SIGN
+  | O_PAR expression:e C_PAR {:
+    RESULT = e;
+  :}
+  | ID:id ASSIGN expression:e {:
+    table.add(id, e);
+  :}
+  | ID:id {:
+    RESULT = table.get(id);
+  :}
+  | INT_CONST:c {:
+    RESULT = c;
+  :}
   ;
 
 condition ::= expression EQ expression

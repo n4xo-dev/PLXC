@@ -1,6 +1,8 @@
 import java_cup.runtime.*;
 %%
 %cup
+// %debug
+
 
 int         = 0|[1-9][0-9]*
 float       = [0-9]*\.[0-9]+([eE][-+]?[0-9]+)?
