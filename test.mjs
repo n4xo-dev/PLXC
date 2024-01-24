@@ -4,12 +4,8 @@ import { execSync } from "child_process";
 readdir("./tests", tests);
 
 function tests(err, files) {
-  const target = process.argv[2];
+  const target = process.argv[2] || "src";
   const verbose = process.argv[3] === "-v";
-  if (!target) {
-    console.error("No target specified.");
-    return;
-  }
   let successfull = 0;
   for(const file of files) {
     const myTdc = myPlxc(file, target).toString();

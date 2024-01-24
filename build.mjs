@@ -2,11 +2,7 @@ import { execSync } from 'child_process';
 
 
 (async () => {
-  const target = process.argv[2];
-  if (!target) {
-    console.error("No target specified.");
-    return;
-  }
+  const target = process.argv[2] || "src";
   console.log("BUILD:");
   try {
     execSync(`cd ./${target}; rm *.class Yylex.java sym.java parser.java`, );
