@@ -4,10 +4,11 @@
 # $1: name of the PLXC java class
 # $2: path to the test cases
 # $3: extension of the test cases
+# $4: name of the PLXC executable
 
 # check if the number of arguments is correct
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <PLXC java class> <path to test cases> <extension of test cases>"
+if [ $# -ne 4 ]; then
+    echo "Usage: $0 <PLXC java class> <path to test cases> <extension of test cases> <PLXC executable>"
     exit 1
 fi
 
@@ -45,8 +46,8 @@ fi
 for file in $2/*.$3; do
     echo "Testing $file"
     java $1 $file | ctd > $file.java.out
-    plxc $file | ctd > $file.plxc.out
-    diff $file.java.out $file.plxc.out
+    $4 $file | ctd > $file.$4.out
+    diff $file.java.out $file.$4.out
     if [ $? -eq 0 ]; then
         echo "✅ $file"
     else

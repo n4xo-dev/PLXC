@@ -2,22 +2,19 @@ import java_cup.runtime.*;
 import java.lang.String;
 import java.util.HashMap;
 import java.util.ArrayList;
+import AST.*;
 
-parser code {:
-	public void syntax_error(Symbol cur_token){
-	}
+// parser code {:
+// 	public void syntax_error(Symbol cur_token){
+// 	}
 
-	public void unrecovered_syntax_error(Symbol cur_token){
-		System.err.println( "Syntax error:"  );
-		// report_error("Syntax error", null);
-		done_parsing();
-	}
-:};
+// 	public void unrecovered_syntax_error(Symbol cur_token){
+// 		System.err.println( "Syntax error:"  );
+// 		// report_error("Syntax error", null);
+// 		done_parsing();
+// 	}
+// :};
 
-action code {:
-  String tab = "   ";
-  SymTable table = new SymTable();
-:};
 
 // Terminales
 terminal String SEMICOLON, COMA;
@@ -37,13 +34,15 @@ terminal String PRINT;
 terminal String LENGTH;
 
 // No-Terminales
-non terminal String sentenceList, sentence;
-non terminal String expression;
-non terminal condition;
-non terminal operator;
+non terminal Program Program;
+non terminal SentenceList sentenceList;
+non terminal Node sentence;
+non terminal Expression expression;
+non terminal Condition condition;
 
 // Precedencias
-precedence left IF, ELSE;
+precedence left IF;
+precedence left ELSE;
 precedence left ASSIGN;
 precedence left ELVIS;
 precedence left PLUS, MINUS;
@@ -60,69 +59,82 @@ precedence nonassoc O_BRACK, C_BRACK;
 
 
 // Gramática
-sentenceList ::= sentence
-  | sentenceList sentence
+Program ::= sentenceList:sl {:
+    RESULT = new Program(sl);
+    PLXC.out.print(RESULT.gen());
+  :}
   ;
 
-sentence ::= expression SEMICOLON
-  | IF O_PAR condition C_PAR sentence
-  | IF O_PAR condition C_PAR sentence ELSE sentence
+sentenceList ::= sentence:s {:
+    List<Node> l = new ArrayList<Node>();
+    l.add(s);
+    RESULT = new SentenceList(l);
+  :}
+  | sentenceList:sl sentence:s {:
+    sl.add(s);
+    RESULT = sl;
+  :}
+  ;
+
+sentence ::= expression:e SEMICOLON {:
+    RESULT = e;
+  :}
+  | IF O_PAR condition:c C_PAR sentence:s %prec IF
+  | IF O_PAR condition:c C_PAR sentence:s1 ELSE sentence:s2 %prec ELSE
   | WHILE O_PAR condition C_PAR sentence
   | DO sentence WHILE O_PAR condition C_PAR SEMICOLON
   | FOR O_PAR expression SEMICOLON condition SEMICOLON expression C_PAR sentence
-  | PRINT O_PAR expression:e C_PAR SEMICOLON {:
-    PLXC.out.printf("%sprint %s;\n", tab, e);
-  :}
-  | O_CURL sentenceList C_CURL
+  | PRINT O_PAR expression:e C_PAR SEMICOLON 
+  | O_CURL sentenceList:s C_CURL 
   ;
 
 expression ::= expression:e1 PLUS expression:e2 {:
-    String temp = table.newTemp();
-    PLXC.out.printf("%s%s = %s + %s;\n", tab, temp, e1, e2);
-    RESULT = temp;
+    RESULT = new BinaryArithmetic(e1, e2, "+");
   :}
   | expression:e1 MINUS expression:e2 {:
-    String temp = table.newTemp();
-    PLXC.out.printf("%s%s = %s - %s;\n", tab, temp, e1, e2);
-    RESULT = temp;
+    RESULT = new BinaryArithmetic(e1, e2, "-");
   :}
   | expression:e1 MULT expression:e2 {:
-    String temp = table.newTemp();
-    PLXC.out.printf("%s%s = %s * %s;\n", tab, temp, e1, e2);
-    RESULT = temp;
+    RESULT = new BinaryArithmetic(e1, e2, "*");
   :}
   | expression:e1 DIV expression:e2 {:
-    String temp = table.newTemp();
-    PLXC.out.printf("%s%s = %s / %s;\n", tab, temp, e1, e2);
-    RESULT = temp;
+    RESULT = new BinaryArithmetic(e1, e2, "/");
   :}
-  | MINUS expression:e {:
-    String temp = table.newTemp();
-    PLXC.out.printf("%s%s = -%s;\n", tab, temp, e);
-    RESULT = temp;
-  :} %prec MINUS_SIGN
+  | MINUS expression:e %prec MINUS_SIGN {:
+    RESULT = new UnaryMinus(e);
+  :}
   | O_PAR expression:e C_PAR {:
     RESULT = e;
   :}
   | ID:id ASSIGN expression:e {:
-    table.add(id, e);
+    RESULT = new Assignment(id, e);
   :}
   | ID:id {:
-    RESULT = table.get(id);
+    RESULT = new Identifier(id);
   :}
   | INT_CONST:c {:
-    RESULT = c;
+    RESULT = new NumericLiteral(c);
   :}
   ;
 
-condition ::= expression EQ expression
-  | expression NEQ expression
-  | expression GT expression
-  | expression LT expression
-  | expression GTE expression
-  | expression LTE expression
-  | NOT condition
-  | condition OR condition
-  | condition AND condition
-  | O_PAR condition C_PAR
+condition ::= expression:e1 EQ expression:e2 {:
+    RESULT = new BinaryCondition(e1, e2, "==");
+  :}
+  | expression:e1 NEQ expression:e2 {:
+    RESULT = new BinaryCondition(e1, e2, "!=");
+  :}
+  | expression:e1 GT expression:e2 {:
+    RESULT = new BinaryCondition(e1, e2, ">");
+  :}
+  | expression:e1 LT expression:e2 {:
+    RESULT = new BinaryCondition(e1, e2, "<");
+  :}
+  | expression:e1 GTE expression:e2
+  | expression:e1 LTE expression:e2
+  | NOT condition:c
+  | condition:c1 OR condition:c2
+  | condition:c1 AND condition:c2
+  | O_PAR condition:c C_PAR {:
+    RESULT = c;
+  :}
   ;

@@ -4,6 +4,7 @@ import java.util.Map;
 public class SymTable {
   private Map<String, String> table;
   private int tempCount = 0;
+  private int labelCount = 0;
 
   public SymTable() {
     table = new HashMap<String, String>();
@@ -23,6 +24,10 @@ public class SymTable {
 
   public String newTemp() {
     return "$t" + tempCount++;
+  }
+
+  public String newLabel() {
+    return "L" + labelCount++;
   }
 
   public String toString() {
