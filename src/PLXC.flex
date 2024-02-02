@@ -1,7 +1,7 @@
 import java_cup.runtime.*;
 %%
 %cup
-%debug
+// %debug
 
 
 int         = 0|[1-9][0-9]*

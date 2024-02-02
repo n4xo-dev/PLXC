@@ -1,8 +1,7 @@
 import java_cup.runtime.*;
 import java.lang.String;
-import java.util.HashMap;
 import java.util.ArrayList;
-import AST.*;
+import java.util.List;
 
 // parser code {:
 // 	public void syntax_error(Symbol cur_token){
@@ -15,6 +14,9 @@ import AST.*;
 // 	}
 // :};
 
+action code {:
+  AST ast = new AST();
+:}
 
 // Terminales
 terminal String SEMICOLON, COMA;
@@ -34,11 +36,11 @@ terminal String PRINT;
 terminal String LENGTH;
 
 // No-Terminales
-non terminal Program Program;
-non terminal SentenceList sentenceList;
-non terminal Node sentence;
-non terminal Expression expression;
-non terminal Condition condition;
+non terminal AST.Program Program;
+non terminal AST.SentenceList sentenceList;
+non terminal AST.Node sentence;
+non terminal AST.Expression expression;
+non terminal AST.Condition condition;
 
 // Precedencias
 precedence left IF;
@@ -60,15 +62,15 @@ precedence nonassoc O_BRACK, C_BRACK;
 
 // Gramática
 Program ::= sentenceList:sl {:
-    RESULT = new Program(sl);
+    RESULT = ast.new Program(sl);
     PLXC.out.print(RESULT.gen());
   :}
   ;
 
 sentenceList ::= sentence:s {:
-    List<Node> l = new ArrayList<Node>();
+    List<AST.Node> l = new ArrayList<AST.Node>();
     l.add(s);
-    RESULT = new SentenceList(l);
+    RESULT = ast.new SentenceList(l);
   :}
   | sentenceList:sl sentence:s {:
     sl.add(s);
@@ -79,58 +81,70 @@ sentenceList ::= sentence:s {:
 sentence ::= expression:e SEMICOLON {:
     RESULT = e;
   :}
-  | IF O_PAR condition:c C_PAR sentence:s %prec IF
-  | IF O_PAR condition:c C_PAR sentence:s1 ELSE sentence:s2 %prec ELSE
+  | IF O_PAR condition:c C_PAR sentence:s {:
+    RESULT = ast.new If(c, s, null);
+  :} %prec IF
+  | IF O_PAR condition:c C_PAR sentence:s1 ELSE sentence:s2 {:
+    RESULT = ast.new If(c, s1, s2);
+  :} %prec ELSE
   | WHILE O_PAR condition C_PAR sentence
   | DO sentence WHILE O_PAR condition C_PAR SEMICOLON
   | FOR O_PAR expression SEMICOLON condition SEMICOLON expression C_PAR sentence
-  | PRINT O_PAR expression:e C_PAR SEMICOLON 
-  | O_CURL sentenceList:s C_CURL 
+  | PRINT O_PAR expression:e C_PAR SEMICOLON {:
+    RESULT = ast.new Print(e);
+  :}
+  | O_CURL sentenceList:s C_CURL {:
+    RESULT = s;
+  :}
   ;
 
 expression ::= expression:e1 PLUS expression:e2 {:
-    RESULT = new BinaryArithmetic(e1, e2, "+");
+    RESULT = ast.new BinaryArithmetic(e1, e2, "+");
   :}
   | expression:e1 MINUS expression:e2 {:
-    RESULT = new BinaryArithmetic(e1, e2, "-");
+    RESULT = ast.new BinaryArithmetic(e1, e2, "-");
   :}
   | expression:e1 MULT expression:e2 {:
-    RESULT = new BinaryArithmetic(e1, e2, "*");
+    RESULT = ast.new BinaryArithmetic(e1, e2, "*");
   :}
   | expression:e1 DIV expression:e2 {:
-    RESULT = new BinaryArithmetic(e1, e2, "/");
+    RESULT = ast.new BinaryArithmetic(e1, e2, "/");
   :}
-  | MINUS expression:e %prec MINUS_SIGN {:
-    RESULT = new UnaryMinus(e);
-  :}
+  | MINUS expression:e {:
+    RESULT = ast.new UnaryMinus(e);
+  :} %prec MINUS_SIGN
   | O_PAR expression:e C_PAR {:
     RESULT = e;
   :}
   | ID:id ASSIGN expression:e {:
-    RESULT = new Assignment(id, e);
+    RESULT = ast.new Assignment(id, e);
   :}
   | ID:id {:
-    RESULT = new Identifier(id);
+    RESULT = ast.new Identifier(id);
   :}
   | INT_CONST:c {:
-    RESULT = new NumericLiteral(c);
+    RESULT = ast.new NumericLiteral(c);
   :}
   ;
 
 condition ::= expression:e1 EQ expression:e2 {:
-    RESULT = new BinaryCondition(e1, e2, "==");
+    RESULT = ast.new BinaryCondition(e1, e2, "==");
   :}
   | expression:e1 NEQ expression:e2 {:
-    RESULT = new BinaryCondition(e1, e2, "!=");
+    RESULT = ast.new BinaryCondition(e1, e2, "!=");
   :}
   | expression:e1 GT expression:e2 {:
-    RESULT = new BinaryCondition(e1, e2, ">");
+    RESULT = ast.new BinaryCondition(e1, e2, ">");
   :}
   | expression:e1 LT expression:e2 {:
-    RESULT = new BinaryCondition(e1, e2, "<");
+    RESULT = ast.new BinaryCondition(e1, e2, "<");
   :}
-  | expression:e1 GTE expression:e2
-  | expression:e1 LTE expression:e2
+  | expression:e1 GTE expression:e2 {:
+    RESULT = ast.new BinaryCondition(e1, e2, ">=");
+  :}
+  | expression:e1 LTE expression:e2 {:
+    RESULT = ast.new BinaryCondition(e1, e2, "<=");
+  :}
   | NOT condition:c
   | condition:c1 OR condition:c2
   | condition:c1 AND condition:c2
