@@ -26,7 +26,7 @@ import java.util.List;
  * </ul>
  */
 class AST {
-  private SymTable symTable = new SymTable();
+  private ScopeTable scopeTable = new ScopeTable();
   private String tab = "   ";
   private String nl = "\n";
 
@@ -147,9 +147,9 @@ class AST {
      * @return The TAC code for the entire conditional statement.
      */
     public String gen() {
-      String l1 = symTable.newLabel();
-      String l2 = symTable.newLabel();
-      String l3 = falseSentence == null ? null : symTable.newLabel();
+      String l1 = scopeTable.newLabel();
+      String l2 = scopeTable.newLabel();
+      String l3 = falseSentence == null ? null : scopeTable.newLabel();
       // String trueBranch = condition.requiresInversion() ? l2 : l1;
       // String falseBranch = condition.requiresInversion() ? l1 : l2;
       String conditionCode = condition.gen(l1, l2);
@@ -191,9 +191,9 @@ class AST {
      * @return The TAC code for the entire while loop.
      */
     public String gen() {
-      String l1 = symTable.newLabel();
-      String l2 = symTable.newLabel();
-      String l3 = symTable.newLabel();
+      String l1 = scopeTable.newLabel();
+      String l2 = scopeTable.newLabel();
+      String l3 = scopeTable.newLabel();
       String conditionCode = condition.gen(l2, l3);
       String bodyCode = body.gen();
       return l1 + ":" + nl +
@@ -231,7 +231,7 @@ class AST {
      * @return The TAC code for the entire do-while loop.
      */
     public String gen() {
-      String l1 = symTable.newLabel();
+      String l1 = scopeTable.newLabel();
       String conditionCode = condition.gen(l1, null);
       String bodyCode = body.gen();
       return l1 + ":" + nl +
@@ -272,9 +272,9 @@ class AST {
      * @return The TAC code for the entire for loop.
      */
     public String gen() {
-      String l1 = symTable.newLabel();
-      String l2 = symTable.newLabel();
-      String l3 = symTable.newLabel();
+      String l1 = scopeTable.newLabel();
+      String l2 = scopeTable.newLabel();
+      String l3 = scopeTable.newLabel();
       String initCode = init.gen();
       String conditionCode = condition.gen(l2, l3);
       String updateCode = update.gen();
@@ -315,6 +315,210 @@ class AST {
       String expressionCode = expression.gen();
       return expressionCode +
         tab + "print " + expression + ";" + nl;
+    }
+  }
+
+  /**
+   * The Expression class is an abstract class that defines the interface for all expressions in the AST.
+   * Each expression must implement the gen method, which generates the TAC code for the expression.
+   * The value of the expression is the variable name that holds the result of the expression or a numeric literal.
+   * The toString method is overridden to return the value of the expression.
+   */
+  public class Expression extends Node {
+    private String value; // The value of the expression is the variable name that holds the result of the expression or a numeric literal.
+    
+    /**
+     * Constructor for the Expression class.
+     * @param value - The value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
+     */
+    public Expression(String value) {
+      this.value = value;
+    }
+
+    /**
+     * Gets the value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
+     * @return The value of the expression.
+     */
+    public String getValue() {
+      return value;
+    }
+
+    /**
+     * Generates the TAC code for the expression.
+     * Only some expressions generate TAC code, so the default implementation returns an empty string.
+     * @return The TAC code for the expression.
+     */
+    public String gen() {
+      return "";  // No code is generated for some expressions.
+    }
+
+    /**
+     * Returns the value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
+     * @return The value of the expression.
+     */
+    @Override
+    public String toString() {
+      return value;
+    }
+  }
+
+  /**
+   * The NumericLiteral class represents a numeric literal expression in the AST.
+   * It contains the value of the numeric literal.
+   */
+  public class NumericLiteral extends Expression {
+    
+    /**
+     * Constructor for the NumericLiteral class.
+     * @param value - The value of the numeric literal.
+     */
+    public NumericLiteral(String value) {
+      super(value);
+    }
+  }
+
+  /**
+   * The Identifier class represents an identifier expression in the AST.
+   * It contains the name of the identifier.
+   */
+  public class Identifier extends Expression {
+
+    /**
+     * Constructor for the Identifier class.
+     * @param value - The name of the identifier.
+     */
+    public Identifier(String id) {
+      super(scopeTable.get(id));
+    }
+  }
+
+  /**
+   * The Declaration class represents a declaration expression in the AST.
+   * It contains an identifier and an expression.
+   */
+  public class Declaration extends Expression {
+    private String holder; // The identifier that holds the result of the expression. (holder of the variable)
+    private Expression expression;
+
+    /**
+     * Constructor for the Assignment class.
+     * @param id - The identifier that holds the result of the expression.
+     * @param expression - The expression to be assigned to the identifier.
+     */
+    public Declaration(String id, Expression expression) {
+      super(scopeTable.add(id));
+      this.holder = this.getValue();
+      this.expression = expression;
+    }
+
+    /**
+     * Generates the TAC code for the assignment expression by calling the gen method of its child expression
+     * and combining the result with the assignment statement.
+     * @return The TAC code for the assignment expression.
+     */
+    public String gen() {
+      String expressionCode = expression.gen();
+      return expressionCode +
+        tab + holder + " = " + expression + ";" + nl;
+    }
+  }
+
+  /**
+   * The Assignment class represents an assignment expression in the AST.
+   * It contains an identifier and an expression.
+   */
+  public class Assignment extends Expression {
+    private String holder; // The identifier that holds the result of the expression. (holder of the variable)
+    private Expression expression;
+
+    /**
+     * Constructor for the Assignment class.
+     * @param id - The identifier that holds the result of the expression.
+     * @param expression - The expression to be assigned to the identifier.
+     */
+    public Assignment(String id, Expression expression) {
+      super(scopeTable.get(id));
+      this.holder = this.getValue();
+      this.expression = expression;
+    }
+
+    /**
+     * Generates the TAC code for the assignment expression by calling the gen method of its child expression
+     * and combining the result with the assignment statement.
+     * @return The TAC code for the assignment expression.
+     */
+    public String gen() {
+      String expressionCode = expression.gen();
+      return expressionCode +
+        tab + holder + " = " + expression + ";" + nl;
+    }
+  }
+
+  /**
+   * The BinaryArithmetic class represents a binary arithmetic expression in the AST.
+   * It contains two expressions and an operator.
+   * It also contains a temporary variable to hold the result of the expression.
+   */
+  public class BinaryArithmetic extends Expression {
+    private Expression left;
+    private Expression right;
+    private String op;
+    private String temp;
+
+    /**
+     * Constructor for the BinaryArithmetic class.
+     * @param left - The left-hand side expression of the arithmetic expression.
+     * @param right - The right-hand side expression of the arithmetic expression.
+     * @param op - The operator of the arithmetic expression.
+     */
+    public BinaryArithmetic(Expression left, Expression right, String op) {
+      super(scopeTable.newTemp());
+      this.temp = this.getValue();
+      this.left = left;
+      this.right = right;
+      this.op = op;
+    }
+
+    /**
+     * Generates the TAC code for the arithmetic expression by calling the gen method of its children
+     * and combining the result with the arithmetic operation.
+     * @return The TAC code for the arithmetic expression.
+     */
+    public String gen() {
+      String leftCode = left.gen();
+      String rightCode = right.gen();
+      return leftCode + rightCode +
+        tab + temp + " = " + left + " " + op + " " + right + ";" + nl;
+    }
+  }
+
+  /**
+   * The UnaryMinus class represents a unary minus expression in the AST.
+   * It contains an expression and a temporary variable to hold the result of the expression.
+   */
+  public class UnaryMinus extends Expression {
+    private Expression expression;
+    private String temp;
+
+    /**
+     * Constructor for the UnaryMinus class.
+     * @param expression - The expression to be negated.
+     */
+    public UnaryMinus(Expression expression) {
+      super(scopeTable.newTemp());
+      this.temp = this.getValue();
+      this.expression = expression;
+    }
+
+    /**
+     * Generates the TAC code for the unary minus expression by calling the gen method of its child expression
+     * and combining the result with the unary minus operation.
+     * @return The TAC code for the unary minus expression.
+     */
+    public String gen() {
+      String expressionCode = expression.gen();
+      return expressionCode +
+        tab + temp + " = -" + expression + ";" + nl;
     }
   }
 
@@ -426,7 +630,7 @@ class AST {
      * @return The TAC code for the OR condition.
      */
     public String gen(String trueBrachLabel, String falseBranchLabel) {
-      String lcontinue = symTable.newLabel();
+      String lcontinue = scopeTable.newLabel();
       String lConditionCode = left.gen(trueBrachLabel, lcontinue);
       String rConditionCode = right.gen(trueBrachLabel, falseBranchLabel);
       return lConditionCode +
@@ -438,7 +642,6 @@ class AST {
       return "ERROR: Or.gen() called without labels. This should not happen.";
     };
   }
-  
 
   /**
    * The And class represents a logical AND condition in the AST.
@@ -464,7 +667,7 @@ class AST {
      * @return The TAC code for the AND condition.
      */
     public String gen(String trueBrachLabel, String falseBranchLabel) {
-      String l1 = symTable.newLabel();
+      String l1 = scopeTable.newLabel();
       String lConditionCode = left.gen(l1, falseBranchLabel);
       String rConditionCode = right.gen(trueBrachLabel, falseBranchLabel);
       return lConditionCode +
@@ -478,175 +681,16 @@ class AST {
   }
 
   /**
-   * The Expression class is an abstract class that defines the interface for all expressions in the AST.
-   * Each expression must implement the gen method, which generates the TAC code for the expression.
-   * The value of the expression is the variable name that holds the result of the expression or a numeric literal.
-   * The toString method is overridden to return the value of the expression.
+   * Pushes a new scope to the scope table.
    */
-  public class Expression extends Node {
-    private String value; // The value of the expression is the variable name that holds the result of the expression or a numeric literal.
-    
-    /**
-     * Constructor for the Expression class.
-     * @param value - The value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
-     */
-    public Expression(String value) {
-      this.value = value;
-    }
-
-    /**
-     * Gets the value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
-     * @return The value of the expression.
-     */
-    public String getValue() {
-      return value;
-    }
-
-    /**
-     * Generates the TAC code for the expression.
-     * Only some expressions generate TAC code, so the default implementation returns an empty string.
-     * @return The TAC code for the expression.
-     */
-    public String gen() {
-      return "";  // No code is generated for some expressions.
-    }
-
-    /**
-     * Returns the value of the expression, which is the variable name that holds the result of the expression or a numeric literal.
-     * @return The value of the expression.
-     */
-    @Override
-    public String toString() {
-      return value;
-    }
+  public void pushScope() {
+    scopeTable.pushScope();
   }
 
   /**
-   * The NumericLiteral class represents a numeric literal expression in the AST.
-   * It contains the value of the numeric literal.
+   * Pops the top scope from the scope table.
    */
-  public class NumericLiteral extends Expression {
-    
-    /**
-     * Constructor for the NumericLiteral class.
-     * @param value - The value of the numeric literal.
-     */
-    public NumericLiteral(String value) {
-      super(value);
-    }
-  }
-
-  /**
-   * The Identifier class represents an identifier expression in the AST.
-   * It contains the name of the identifier.
-   */
-  public class Identifier extends Expression {
-
-    /**
-     * Constructor for the Identifier class.
-     * @param value - The name of the identifier.
-     */
-    public Identifier(String value) {
-      super(value);
-    }
-  }
-
-  /**
-   * The Assignment class represents an assignment expression in the AST.
-   * It contains an identifier and an expression.
-   */
-  public class Assignment extends Expression {
-    private String id;
-    private Expression expression;
-
-    /**
-     * Constructor for the Assignment class.
-     * @param id - The identifier that holds the result of the expression.
-     * @param expression - The expression to be assigned to the identifier.
-     */
-    public Assignment(String id, Expression expression) {
-      super(id);  // The value of the expression is the variable name that holds the result of the expression.
-      this.id = id;
-      this.expression = expression;
-    }
-
-    /**
-     * Generates the TAC code for the assignment expression by calling the gen method of its child expression
-     * and combining the result with the assignment statement.
-     * @return The TAC code for the assignment expression.
-     */
-    public String gen() {
-      String expressionCode = expression.gen();
-      return expressionCode +
-        tab + id + " = " + expression + ";" + nl;
-    }
-  }
-
-  /**
-   * The BinaryArithmetic class represents a binary arithmetic expression in the AST.
-   * It contains two expressions and an operator.
-   * It also contains a temporary variable to hold the result of the expression.
-   */
-  public class BinaryArithmetic extends Expression {
-    private Expression left;
-    private Expression right;
-    private String op;
-    private String temp;
-
-    /**
-     * Constructor for the BinaryArithmetic class.
-     * @param left - The left-hand side expression of the arithmetic expression.
-     * @param right - The right-hand side expression of the arithmetic expression.
-     * @param op - The operator of the arithmetic expression.
-     */
-    public BinaryArithmetic(Expression left, Expression right, String op) {
-      super(symTable.newTemp());
-      this.temp = this.getValue();
-      this.left = left;
-      this.right = right;
-      this.op = op;
-    }
-
-    /**
-     * Generates the TAC code for the arithmetic expression by calling the gen method of its children
-     * and combining the result with the arithmetic operation.
-     * @return The TAC code for the arithmetic expression.
-     */
-    public String gen() {
-      String leftCode = left.gen();
-      String rightCode = right.gen();
-      return leftCode + rightCode +
-        tab + temp + " = " + left + " " + op + " " + right + ";" + nl;
-    }
-  }
-
-  /**
-   * The UnaryMinus class represents a unary minus expression in the AST.
-   * It contains an expression and a temporary variable to hold the result of the expression.
-   */
-  public class UnaryMinus extends Expression {
-    private Expression expression;
-    private String temp;
-
-    /**
-     * Constructor for the UnaryMinus class.
-     * @param expression - The expression to be negated.
-     */
-    public UnaryMinus(Expression expression) {
-      super(symTable.newTemp());
-      this.temp = this.getValue();
-      this.expression = expression;
-    }
-
-    /**
-     * Generates the TAC code for the unary minus expression by calling the gen method of its child expression
-     * and combining the result with the unary minus operation.
-     * @return The TAC code for the unary minus expression.
-     */
-    public String gen() {
-      String expressionCode = expression.gen();
-      return expressionCode +
-        tab + temp + " = -" + expression + ";" + nl;
-    }
+  public void popScope() {
+    scopeTable.popScope();
   }
 }

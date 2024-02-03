@@ -40,6 +40,7 @@ non terminal AST.Program Program;
 non terminal AST.SentenceList sentenceList;
 non terminal AST.Node sentence;
 non terminal AST.Expression expression;
+non terminal AST.Expression arithmetic;
 non terminal AST.Condition condition;
 
 // Precedencias
@@ -63,7 +64,7 @@ precedence nonassoc O_BRACK, C_BRACK;
 // Gramática
 Program ::= sentenceList:sl {:
     RESULT = ast.new Program(sl);
-    PLC.out.print(RESULT.gen());
+    PLXC.out.print(RESULT.gen());
   :}
   ;
 
@@ -99,12 +100,33 @@ sentence ::= expression:e SEMICOLON {:
   | PRINT O_PAR expression:e C_PAR SEMICOLON {:
     RESULT = ast.new Print(e);
   :}
-  | O_CURL sentenceList:s C_CURL {:
+  | O_CURL {: ast.pushScope(); :} sentenceList:s C_CURL {:
+    ast.popScope();
     RESULT = s;
   :}
   ;
 
-expression ::= expression:e1 PLUS expression:e2 {:
+expression ::= arithmetic:a {:
+    RESULT = a;
+  :}
+  | O_PAR expression:e C_PAR {:
+    RESULT = e;
+  :}
+  | INT ID:id ASSIGN expression:e {:
+    RESULT = ast.new Declaration(id, e);
+  :}
+  | ID:id ASSIGN expression:e {:
+    RESULT = ast.new Assignment(id, e);
+  :}
+  | ID:id {:
+    RESULT = ast.new Identifier(id);
+  :}
+  | INT_CONST:c {:
+    RESULT = ast.new NumericLiteral(c);
+  :}
+  ;
+
+arithmetic ::= expression:e1 PLUS expression:e2 {:
     RESULT = ast.new BinaryArithmetic(e1, e2, "+");
   :}
   | expression:e1 MINUS expression:e2 {:
@@ -119,18 +141,6 @@ expression ::= expression:e1 PLUS expression:e2 {:
   | MINUS expression:e {:
     RESULT = ast.new UnaryMinus(e);
   :} %prec MINUS_SIGN
-  | O_PAR expression:e C_PAR {:
-    RESULT = e;
-  :}
-  | ID:id ASSIGN expression:e {:
-    RESULT = ast.new Assignment(id, e);
-  :}
-  | ID:id {:
-    RESULT = ast.new Identifier(id);
-  :}
-  | INT_CONST:c {:
-    RESULT = ast.new NumericLiteral(c);
-  :}
   ;
 
 condition ::= expression:e1 EQ expression:e2 {:
