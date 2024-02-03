@@ -426,9 +426,12 @@ class AST {
      * @return The TAC code for the OR condition.
      */
     public String gen(String trueBrachLabel, String falseBranchLabel) {
-      String lConditionCode = left.gen(trueBrachLabel, null);
+      String lcontinue = symTable.newLabel();
+      String lConditionCode = left.gen(trueBrachLabel, lcontinue);
       String rConditionCode = right.gen(trueBrachLabel, falseBranchLabel);
-      return lConditionCode + rConditionCode;
+      return lConditionCode +
+        lcontinue + ":" + nl +
+        rConditionCode;
     }
 
     public String gen() {
