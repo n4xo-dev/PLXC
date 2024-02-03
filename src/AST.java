@@ -15,6 +15,8 @@ import java.util.List;
  * <li><b>Print</b>: A print statement. It contains an expression to be printed.
  * <li><b>Condition</b>: The abstract base class for all conditions in the AST. It defines the interface for all conditions in the tree.
  * <li><b>BinaryCondition</b>: A binary condition. It contains two expressions and an operator.
+ * <li><b>Or</b>: A logical OR condition. It contains two conditions.
+ * <li><b>And</b>: A logical AND condition. It contains two conditions.
  * <li><b>Expression</b>: The abstract base class for all expressions in the AST. It defines the interface for all expressions in the tree.
  * <li><b>NumericLiteral</b>: A numeric literal expression.
  * <li><b>Identifier</b>: An identifier expression.
@@ -25,8 +27,8 @@ import java.util.List;
  */
 class AST {
   private SymTable symTable = new SymTable();
-  private String TAB = "   ";
-  private String NL = "\n";
+  private String tab = "   ";
+  private String nl = "\n";
 
   /**
    * Default constructor. Uses default values for TAB and NL (three spaces and a newline).
@@ -39,8 +41,8 @@ class AST {
    * @param nl - The string to use for newlines.
    */
   AST(String tab, String nl) {
-    TAB = tab;
-    NL = nl;
+    this.tab = tab;
+    this.nl = nl;
   }
 
   
@@ -145,23 +147,147 @@ class AST {
      * @return The TAC code for the entire conditional statement.
      */
     public String gen() {
-      String conditionCode = condition.gen();
-      String trueBranchCode = trueSentence.gen();
-      String falseBranchCode = falseSentence == null ? "" : falseSentence.gen();
       String l1 = symTable.newLabel();
       String l2 = symTable.newLabel();
       String l3 = falseSentence == null ? null : symTable.newLabel();
-      String trueBranch = condition.requiresInversion() ? l2 : l1;
-      String falseBranch = condition.requiresInversion() ? l1 : l2;
-      return conditionCode +
-        TAB + "if (" + condition + ") goto " + trueBranch + ";" + NL +
-        TAB + "goto " + falseBranch + ";" + NL +
-        l1 + ":" + NL +
+      // String trueBranch = condition.requiresInversion() ? l2 : l1;
+      // String falseBranch = condition.requiresInversion() ? l1 : l2;
+      String conditionCode = condition.gen(l1, l2);
+      String trueBranchCode = trueSentence.gen();
+      String falseBranchCode = falseSentence == null ? "" : falseSentence.gen();
+      return conditionCode + // tab + "if (" + condition + ") goto " + trueBranch + ";" + nl +
+        // tab + "goto " + falseBranch + ";" + nl +
+        l1 + ":" + nl +
         trueBranchCode +
-        (falseSentence == null ? "" : TAB + "goto " + l3 + ";" + NL) +
-        l2 + ":" + NL +
+        (falseSentence == null ? "" : tab + "goto " + l3 + ";" + nl) +
+        l2 + ":" + nl +
         falseBranchCode +
-        (falseSentence == null ? "" : l3 + ":" + NL);
+        (falseSentence == null ? "" : l3 + ":" + nl);
+    }
+  }
+
+  /**
+   * The While class represents a while loop in the AST.
+   * It contains a condition and a body.
+   */
+  public class While extends Node {
+    private Condition condition;
+    private Node body;
+
+    /**
+     * Constructor for the While class.
+     * @param condition - The condition of the while loop.
+     * @param body - The body of the while loop.
+     */
+    public While(Condition condition, Node body) {
+      this.condition = condition;
+      this.body = body;
+    }
+
+    /**
+     * Generates the TAC code for the entire while loop by calling the gen method of
+     * the condition (to evaluate the condition), the body (to generate the body code),
+     * and combining the results with conditional and unconditional jumps.
+     * @return The TAC code for the entire while loop.
+     */
+    public String gen() {
+      String l1 = symTable.newLabel();
+      String l2 = symTable.newLabel();
+      String l3 = symTable.newLabel();
+      String conditionCode = condition.gen(l2, l3);
+      String bodyCode = body.gen();
+      return l1 + ":" + nl +
+        conditionCode + // tab + "if (" + condition + ") goto " + l2 + ";" + nl +
+        // tab + "goto " + l3 + ";" + nl +
+        l2 + ":" + nl +
+        bodyCode +
+        tab + "goto " + l1 + ";" + nl +
+        l3 + ":" + nl;
+    }
+  }
+
+  /**
+   * The DoWhile class represents a do-while loop in the AST.
+   * It contains a condition and a body.
+   */
+  public class DoWhile extends Node {
+    private Condition condition;
+    private Node body;
+
+    /**
+     * Constructor for the DoWhile class.
+     * @param condition - The condition of the do-while loop.
+     * @param body - The body of the do-while loop.
+     */
+    public DoWhile(Condition condition, Node body) {
+      this.condition = condition;
+      this.body = body;
+    }
+
+    /**
+     * Generates the TAC code for the entire do-while loop by calling the gen method of
+     * the body (to generate the body code), the condition (to evaluate the condition),
+     * and combining the results with conditional and unconditional jumps.
+     * @return The TAC code for the entire do-while loop.
+     */
+    public String gen() {
+      String l1 = symTable.newLabel();
+      String conditionCode = condition.gen(l1, null);
+      String bodyCode = body.gen();
+      return l1 + ":" + nl +
+        bodyCode +
+        conditionCode; // The condition is evaluated at the end of the loop. After the body has been executed.
+        // tab + "if (" + condition + ") goto " + l1 + ";" + nl;
+    }
+  }
+
+  /**
+   * The For class represents a for loop in the AST.
+   * It contains an initialization statement, a condition, an update statement, and a body.
+   */
+  public class For extends Node {
+    private Node init;
+    private Condition condition;
+    private Node update;
+    private Node body;
+
+    /**
+     * Constructor for the For class.
+     * @param init - The initialization statement of the for loop.
+     * @param condition - The condition of the for loop.
+     * @param update - The update statement of the for loop.
+     * @param body - The body of the for loop.
+     */
+    public For(Node init, Condition condition, Node update, Node body) {
+      this.init = init;
+      this.condition = condition;
+      this.update = update;
+      this.body = body;
+    }
+
+    /**
+     * Generates the TAC code for the entire for loop by calling the gen method of
+     * the initialization statement, the condition (to evaluate the condition), the body (to generate the body code),
+     * and the update statement, and combining the results with conditional and unconditional jumps.
+     * @return The TAC code for the entire for loop.
+     */
+    public String gen() {
+      String l1 = symTable.newLabel();
+      String l2 = symTable.newLabel();
+      String l3 = symTable.newLabel();
+      String initCode = init.gen();
+      String conditionCode = condition.gen(l2, l3);
+      String updateCode = update.gen();
+      String bodyCode = body.gen();
+      return initCode +
+        l1 + ":" + nl +
+        conditionCode + // tab + "if (" + condition + ") goto " + l2 + ";" + nl +
+        // tab + "goto " + l3 + ";" + nl +
+        l2 + ":" + nl +
+        bodyCode +
+        updateCode +
+        tab + "goto " + l1 + ";" + nl +
+        l3 + ":" + nl;
     }
   }
 
@@ -188,7 +314,7 @@ class AST {
     public String gen() {
       String expressionCode = expression.gen();
       return expressionCode +
-        TAB + "print " + expression + ";" + NL;
+        tab + "print " + expression + ";" + nl;
     }
   }
 
@@ -198,21 +324,8 @@ class AST {
    * 
    * This class is used more as a reference than as a class to inherit from.
    */
-  public class Condition extends Node {
-    private String condition;
-    private boolean requiresInversion;
-  
-    public String gen() {
-      return "";  // No code is generated by default.
-    }
-
-    public String getCondition() {
-      return condition;
-    }
-
-    public boolean requiresInversion() {
-      return requiresInversion;
-    }
+  public abstract class Condition extends Node {
+    public abstract String gen(String trueBrachLabel, String falseBranchLabel);
   }
 
   /**
@@ -251,41 +364,114 @@ class AST {
     }
 
     /**
-     * Gets the valid TAC condition string.
-     * @return The condition string.
-     */
-    public String getCondition() {
-      return condition;
-    }
-
-    /**
-     * Gets the requiresInversion flag.
-     * @return The requiresInversion flag.
-     */
-    public boolean requiresInversion() {
-      return requiresInversion;
-    }
-
-    /**
      * Generates the code necessary to evaluate the condition.
      * I.e. the code needed to reduce the condition to a Three-Address-Code
      * valid condition where there is only two operands and one operator.
      */
-    public String gen() {
+    public String gen(String trueBrachLabel, String falseBranchLabel) {
       String lExpressionCode = left.gen();
       String rExpressionCode = right.gen();
-      return lExpressionCode + rExpressionCode;
+      if (this.requiresInversion) {
+        String temp = trueBrachLabel;
+        trueBrachLabel = falseBranchLabel;
+        falseBranchLabel = temp;
+      }
+      return lExpressionCode + rExpressionCode +
+        tab + "if (" + condition + ") goto " + trueBrachLabel + ";" + nl +
+        (falseBranchLabel == null ? "" : tab + "goto " + falseBranchLabel + ";" + nl);
     }
-    
+
+    public String gen() {
+      return "ERROR: BinaryCondition.gen() called without labels. This should not happen.";
+    };
+  }
+
+  public class Not extends Condition {
+    private Condition condition;
+
+    public Not(Condition condition) {
+      this.condition = condition;
+    }
+
+    public String gen(String trueBrachLabel, String falseBranchLabel) {
+      return condition.gen(falseBranchLabel, trueBrachLabel);
+    }
+
+    public String gen() {
+      return "ERROR: Negation.gen() called without labels. This should not happen.";
+    };
+  }
+
+  /**
+   * The Or class represents a logical OR condition in the AST.
+   * It contains two conditions.
+   */
+  public class Or extends Condition {
+    private Condition left;
+    private Condition right;
+
     /**
-     * Returns the condition string.
-     * Which is the values of the left and right expressions and the valid TAC operator.
-     * @return The condition string.
+     * Constructor for the Or class.
+     * @param left - The left-hand side condition of the OR condition.
+     * @param right - The right-hand side condition of the OR condition.
      */
-    @Override
-    public String toString() {
-      return condition;
+    public Or(Condition left, Condition right) {
+      this.left = left;
+      this.right = right;
     }
+
+    /**
+     * Generates the TAC code for the OR condition by calling the gen method of its children
+     * and combining the results with conditional and unconditional jumps.
+     * @return The TAC code for the OR condition.
+     */
+    public String gen(String trueBrachLabel, String falseBranchLabel) {
+      String lConditionCode = left.gen(trueBrachLabel, null);
+      String rConditionCode = right.gen(trueBrachLabel, falseBranchLabel);
+      return lConditionCode + rConditionCode;
+    }
+
+    public String gen() {
+      return "ERROR: Or.gen() called without labels. This should not happen.";
+    };
+  }
+  
+
+  /**
+   * The And class represents a logical AND condition in the AST.
+   * It contains two conditions.
+   */
+  public class And extends Condition {
+    private Condition left;
+    private Condition right;
+
+    /**
+     * Constructor for the And class.
+     * @param left - The left-hand side condition of the AND condition.
+     * @param right - The right-hand side condition of the AND condition.
+     */
+    public And(Condition left, Condition right) {
+      this.left = left;
+      this.right = right;
+    }
+
+    /**
+     * Generates the TAC code for the AND condition by calling the gen method of its children
+     * and combining the results with conditional and unconditional jumps.
+     * @return The TAC code for the AND condition.
+     */
+    public String gen(String trueBrachLabel, String falseBranchLabel) {
+      String l1 = symTable.newLabel();
+      String lConditionCode = left.gen(l1, falseBranchLabel);
+      String rConditionCode = right.gen(trueBrachLabel, falseBranchLabel);
+      return lConditionCode +
+        l1 + ":" + nl +
+        rConditionCode;
+    }
+
+    public String gen() {
+      return "ERROR: And.gen() called without labels. This should not happen.";
+    };
   }
 
   /**
@@ -389,7 +575,7 @@ class AST {
     public String gen() {
       String expressionCode = expression.gen();
       return expressionCode +
-        TAB + id + " = " + expression + ";" + NL;
+        tab + id + " = " + expression + ";" + nl;
     }
   }
 
@@ -427,7 +613,7 @@ class AST {
       String leftCode = left.gen();
       String rightCode = right.gen();
       return leftCode + rightCode +
-        TAB + temp + " = " + left + " " + op + " " + right + ";" + NL;
+        tab + temp + " = " + left + " " + op + " " + right + ";" + nl;
     }
   }
 
@@ -457,7 +643,7 @@ class AST {
     public String gen() {
       String expressionCode = expression.gen();
       return expressionCode +
-        TAB + temp + " = -" + expression + ";" + NL;
+        tab + temp + " = -" + expression + ";" + nl;
     }
   }
 }
