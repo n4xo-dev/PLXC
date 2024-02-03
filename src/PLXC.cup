@@ -15,7 +15,7 @@ import java.util.List;
 // :};
 
 action code {:
-  AST ast = new AST(true);
+  AST ast = new AST();
 :}
 
 // Terminales
