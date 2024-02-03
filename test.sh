@@ -44,7 +44,6 @@ fi
 
 # execute "java $1 test.plx | ctd" and compare the output with the output of "plxc test.plx | ctd" for each test case in the folder specified by $2
 for file in $2/*.$3; do
-    echo "Testing $file"
     java $1 $file | ctd > $file.java.out
     $4 $file | ctd > $file.$4.out
     diff $file.java.out $file.$4.out
