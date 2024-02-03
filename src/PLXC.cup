@@ -15,7 +15,7 @@ import java.util.List;
 // :};
 
 action code {:
-  AST ast = new AST();
+  AST ast = new AST(true);
 :}
 
 // Terminales
@@ -39,9 +39,11 @@ terminal String LENGTH;
 non terminal AST.Program Program;
 non terminal AST.SentenceList sentenceList;
 non terminal AST.Node sentence;
+non terminal AST.DeclarationList declarationList;
 non terminal AST.Expression expression;
 non terminal AST.Expression arithmetic;
 non terminal AST.Condition condition;
+non terminal String type;
 
 // Precedencias
 precedence left IF;
@@ -63,23 +65,22 @@ precedence nonassoc O_BRACK, C_BRACK;
 
 // Gramática
 Program ::= sentenceList:sl {:
-    RESULT = ast.new Program(sl);
-    PLXC.out.print(RESULT.gen());
+    PLXC.out.print(ast.new Program(sl).gen());
   :}
   ;
 
 sentenceList ::= sentence:s {:
-    List<AST.Node> l = new ArrayList<AST.Node>();
-    l.add(s);
-    RESULT = ast.new SentenceList(l);
+    RESULT = ast.new SentenceList(s);
   :}
   | sentenceList:sl sentence:s {:
-    sl.add(s);
-    RESULT = sl;
+    RESULT = sl.add(s);
   :}
   ;
 
-sentence ::= expression:e SEMICOLON {:
+sentence ::= declarationList:d SEMICOLON {:
+    RESULT = d;
+  :}
+  | expression:e SEMICOLON {:
     RESULT = e;
   :}
   | IF O_PAR condition:c C_PAR sentence:s {:
@@ -106,14 +107,39 @@ sentence ::= expression:e SEMICOLON {:
   :}
   ;
 
+declarationList ::= type:t ID:id {:
+    RESULT = ast.new DeclarationList(id, null);
+  :}
+  | declarationList:d COMA type:t ID:id {:
+    RESULT = d.add(id, null);
+  :}
+  | type:t ID:id ASSIGN expression:e {:
+    RESULT = ast.new DeclarationList(id, e);
+  :}
+  | declarationList:d COMA ID:id ASSIGN expression:e {:
+    RESULT = d.add(id, e);
+  :}
+  ;
+
+type ::= INT {:
+    RESULT = "int";
+  :}
+  | FLOAT {:
+    RESULT = "float";
+  :}
+  | CHAR {:
+    RESULT = "char";
+  :}
+  | STRING {:
+    RESULT = "string";
+  :}
+  ;
+
 expression ::= arithmetic:a {:
     RESULT = a;
   :}
   | O_PAR expression:e C_PAR {:
     RESULT = e;
-  :}
-  | INT ID:id ASSIGN expression:e {:
-    RESULT = ast.new Declaration(id, e);
   :}
   | ID:id ASSIGN expression:e {:
     RESULT = ast.new Assignment(id, e);

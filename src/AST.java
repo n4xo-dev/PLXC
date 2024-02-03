@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,11 +30,20 @@ class AST {
   private ScopeTable scopeTable = new ScopeTable();
   private String tab = "   ";
   private String nl = "\n";
+  private boolean debug = false;
 
   /**
    * Default constructor. Uses default values for TAB and NL (three spaces and a newline).
    */
   AST() {}
+
+  /**
+   * Constructor that takes a custom value for TAB.
+   * @param tab - The string to use for indentation.
+   */
+  AST(boolean debug) {
+    this.debug = debug;
+  }
 
   /**
    * Constructor that takes custom values for TAB and NL.
@@ -43,6 +53,18 @@ class AST {
   AST(String tab, String nl) {
     this.tab = tab;
     this.nl = nl;
+  }
+
+  /**
+   * Constructor that takes custom values for TAB, NL, and debug.
+   * @param tab - The string to use for indentation.
+   * @param nl - The string to use for newlines.
+   * @param debug - Whether to print debug information.
+   */
+  AST(String tab, String nl, boolean debug) {
+    this.tab = tab;
+    this.nl = nl;
+    this.debug = debug;
   }
 
   
@@ -73,6 +95,10 @@ class AST {
      */
     public Program(SentenceList children) {
       this.children = children;
+      
+      if (debug) {
+        System.out.println("  <@@@> Program created with children: " + children + " <@@@>");
+      }
     }
 
     /**
@@ -95,16 +121,23 @@ class AST {
      * Constructor for the SentenceList class.
      * @param sentences - The list of sentences that are the children of the sentence list node.
      */
-    public SentenceList(List<Node> sentences) {
-      this.sentences = sentences;
+    public SentenceList(Node first) {
+      sentences = new ArrayList<Node>();
+      sentences.add(first);
+      
+      if (debug) {
+        System.out.println("  <@@@> SentenceList created with first sentence: " + first + " <@@@>");
+      }
     }
 
     /**
      * Adds a sentence to the list of sentences.
      * @param sentence - The sentence to add to the list of sentences.
+     * @return The SentenceList object, for chaining.
      */
-    public void add(Node sentence) {
+    public SentenceList add(Node sentence) {
       sentences.add(sentence);
+      return this;
     }
 
     /**
@@ -139,6 +172,10 @@ class AST {
       this.condition = condition;
       this.trueSentence = trueBranch;
       this.falseSentence = falseBranch;
+      
+      if (debug) {
+        System.out.println("  <@@@> If created with condition: " + condition + ", true branch: " + trueBranch + ", and false branch: " + falseBranch + " <@@@>");
+      }
     }
 
     /**
@@ -155,14 +192,15 @@ class AST {
       String conditionCode = condition.gen(l1, l2);
       String trueBranchCode = trueSentence.gen();
       String falseBranchCode = falseSentence == null ? "" : falseSentence.gen();
-      return conditionCode + // tab + "if (" + condition + ") goto " + trueBranch + ";" + nl +
-        // tab + "goto " + falseBranch + ";" + nl +
+      String skipFalseBranch = falseSentence == null ? "" : tab + "goto " + l3 + ";" + nl;
+      String skipFalseBranchLabel = falseSentence == null ? "" : l3 + ":" + nl;
+      return conditionCode +
         l1 + ":" + nl +
         trueBranchCode +
-        (falseSentence == null ? "" : tab + "goto " + l3 + ";" + nl) +
+        skipFalseBranch +
         l2 + ":" + nl +
         falseBranchCode +
-        (falseSentence == null ? "" : l3 + ":" + nl);
+        skipFalseBranchLabel;
     }
   }
 
@@ -182,6 +220,10 @@ class AST {
     public While(Condition condition, Node body) {
       this.condition = condition;
       this.body = body;
+      
+      if (debug) {
+        System.out.println("  <@@@> While created with condition: " + condition + " and body: " + body + " <@@@>");
+      }
     }
 
     /**
@@ -222,6 +264,10 @@ class AST {
     public DoWhile(Condition condition, Node body) {
       this.condition = condition;
       this.body = body;
+
+      if (debug) {
+        System.out.println("  <@@@> DoWhile created with condition: " + condition + " and body: " + body + " <@@@>");
+      }
     }
 
     /**
@@ -263,6 +309,10 @@ class AST {
       this.condition = condition;
       this.update = update;
       this.body = body;
+
+      if (debug) {
+        System.out.println("  <@@@> For created with init: " + init + ", condition: " + condition + ", update: " + update + ", and body: " + body + " <@@@>");
+      }
     }
 
     /**
@@ -304,6 +354,10 @@ class AST {
      */
     public Print(Expression expression) {
       this.expression = expression;
+
+      if (debug) {
+        System.out.println("  <@@@> Print created with expression: " + expression + " <@@@>");
+      }
     }
 
     /**
@@ -374,6 +428,10 @@ class AST {
      */
     public NumericLiteral(String value) {
       super(value);
+
+      if (debug) {
+        System.out.println("  <@@@> NumericLiteral created with value: " + value + " <@@@>");
+      }
     }
   }
 
@@ -389,6 +447,10 @@ class AST {
      */
     public Identifier(String id) {
       super(scopeTable.get(id));
+
+      if (debug) {
+        System.out.println("  <@@@> Identifier created with value: " + id + " <@@@>");
+      }
     }
   }
 
@@ -398,7 +460,7 @@ class AST {
    */
   public class Declaration extends Expression {
     private String holder; // The identifier that holds the result of the expression. (holder of the variable)
-    private Expression expression;
+    private Expression expression; // Can be null. (I.e., the variable is initialized to 0.)
 
     /**
      * Constructor for the Assignment class.
@@ -409,6 +471,10 @@ class AST {
       super(scopeTable.add(id));
       this.holder = this.getValue();
       this.expression = expression;
+
+      if (debug) {
+        System.out.println("  <@@@> Declaration created with id: " + id + " and expression: " + expression + " <@@@>");
+      }
     }
 
     /**
@@ -418,8 +484,35 @@ class AST {
      */
     public String gen() {
       String expressionCode = expression.gen();
+      Object value = expression == null ? "0" : expression.toString();
       return expressionCode +
-        tab + holder + " = " + expression + ";" + nl;
+        tab + holder + " = " + value + ";" + nl;
+    }
+  }
+
+  public class DeclarationList extends Node {
+    private List<Declaration> declarations;
+
+    public DeclarationList(String firstId, Expression firstExpression) {
+      declarations = new ArrayList<Declaration>();
+      declarations.add(new Declaration(firstId, firstExpression));
+
+      if (debug) {
+        System.out.println("  <@@@> DeclarationList created with first id: " + firstId + " and first expression: " + firstExpression + " <@@@>");
+      }
+    }
+
+    public DeclarationList add(String id, Expression expression) {
+      declarations.add(new Declaration(id, expression));
+      return this;
+    }
+
+    public String gen() {
+      StringBuilder sb = new StringBuilder();
+      for (Declaration declaration : declarations) {
+        sb.append(declaration.gen());
+      }
+      return sb.toString();
     }
   }
 
@@ -440,6 +533,10 @@ class AST {
       super(scopeTable.get(id));
       this.holder = this.getValue();
       this.expression = expression;
+
+      if (debug) {
+        System.out.println("  <@@@> Assignment created with id: " + id + " and expression: " + expression + " <@@@>");
+      }
     }
 
     /**
@@ -477,6 +574,10 @@ class AST {
       this.left = left;
       this.right = right;
       this.op = op;
+
+      if (debug) {
+        System.out.println("  <@@@> BinaryArithmetic created with left: " + left + ", right: " + right + ", and op: " + op + " <@@@>");
+      }
     }
 
     /**
@@ -508,6 +609,10 @@ class AST {
       super(scopeTable.newTemp());
       this.temp = this.getValue();
       this.expression = expression;
+
+      if (debug) {
+        System.out.println("  <@@@> UnaryMinus created with expression: " + expression + " <@@@>");
+      }
     }
 
     /**
@@ -565,6 +670,10 @@ class AST {
         this.requiresInversion = true;
         this.condition = right + " < " + left;
       }
+
+      if (debug) {
+        System.out.println("  <@@@> BinaryCondition created with left: " + left + ", right: " + right + ", and op: " + op + " <@@@>");
+      }
     }
 
     /**
@@ -595,6 +704,10 @@ class AST {
 
     public Not(Condition condition) {
       this.condition = condition;
+
+      if (debug) {
+        System.out.println("  <@@@> Not created with condition: " + condition + " <@@@>");
+      }
     }
 
     public String gen(String trueBrachLabel, String falseBranchLabel) {
@@ -622,6 +735,10 @@ class AST {
     public Or(Condition left, Condition right) {
       this.left = left;
       this.right = right;
+
+      if (debug) {
+        System.out.println("  <@@@> Or created with left: " + left + " and right: " + right + " <@@@>");
+      }
     }
 
     /**
@@ -659,6 +776,10 @@ class AST {
     public And(Condition left, Condition right) {
       this.left = left;
       this.right = right;
+
+      if (debug) {
+        System.out.println("  <@@@> And created with left: " + left + " and right: " + right + " <@@@>");
+      }
     }
 
     /**
