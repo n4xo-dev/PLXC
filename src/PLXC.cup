@@ -5,17 +5,22 @@ import java.util.List;
 
 // parser code {:
 // 	public void syntax_error(Symbol cur_token){
+//     System.err.println( "Syntax error:"  );
+//     // report_error("Syntax error", null);
+//     ast.printTable();
+//     done_parsing();
 // 	}
 
 // 	public void unrecovered_syntax_error(Symbol cur_token){
 // 		System.err.println( "Syntax error:"  );
 // 		// report_error("Syntax error", null);
+//     ast.printTable();
 // 		done_parsing();
 // 	}
 // :};
 
 action code {:
-  AST ast = new AST(false);
+  AST ast = new AST();
 :}
 
 // Terminales
@@ -43,7 +48,7 @@ non terminal AST.DeclarationList declarationList;
 non terminal AST.Expression expression;
 non terminal AST.Expression arithmetic;
 non terminal AST.Condition condition;
-non terminal String type;
+non terminal Type type;
 
 // Precedencias
 precedence left IF;
@@ -108,13 +113,13 @@ sentence ::= declarationList:d SEMICOLON {:
   ;
 
 declarationList ::= type:t ID:id {:
-    RESULT = ast.new DeclarationList(id, null);
+    RESULT = ast.new DeclarationList(t, id, null);
   :}
   | declarationList:d COMA ID:id {:
     RESULT = d.add(id, null);
   :}
   | type:t ID:id ASSIGN expression:e {:
-    RESULT = ast.new DeclarationList(id, e);
+    RESULT = ast.new DeclarationList(t, id, e);
   :}
   | declarationList:d COMA ID:id ASSIGN expression:e {:
     RESULT = d.add(id, e);
@@ -122,16 +127,16 @@ declarationList ::= type:t ID:id {:
   ;
 
 type ::= INT {:
-    RESULT = "int";
+    RESULT = Type.INT;
   :}
   | FLOAT {:
-    RESULT = "float";
+    RESULT = Type.FLOAT;
   :}
   | CHAR {:
-    RESULT = "char";
+    RESULT = Type.CHAR;
   :}
   | STRING {:
-    RESULT = "string";
+    RESULT = Type.STRING;
   :}
   ;
 
@@ -148,7 +153,10 @@ expression ::= arithmetic:a {:
     RESULT = ast.new Identifier(id);
   :}
   | INT_CONST:c {:
-    RESULT = ast.new NumericLiteral(c);
+    RESULT = ast.new NumericLiteral(Type.INT, c);
+  :}
+  | FLOAT_CONST:c {:
+    RESULT = ast.new NumericLiteral(Type.FLOAT, c);
   :}
   ;
 
