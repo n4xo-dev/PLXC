@@ -27,7 +27,7 @@ import java.util.List;
  * </ul>
  */
 class AST {
-  private ScopeTable scopeTable = new ScopeTable();
+  private ScopeTable scopeTable;
   private String tab = "   ";
   private String nl = "\n";
   private boolean debug = false;
@@ -35,13 +35,16 @@ class AST {
   /**
    * Default constructor. Uses default values for TAB and NL (three spaces and a newline).
    */
-  AST() {}
+  AST() {
+    scopeTable = new ScopeTable();
+  }
 
   /**
    * Constructor that takes a custom value for TAB.
    * @param tab - The string to use for indentation.
    */
   AST(boolean debug) {
+    this.scopeTable = new ScopeTable(debug);
     this.debug = debug;
   }
 
@@ -51,6 +54,7 @@ class AST {
    * @param nl - The string to use for newlines.
    */
   AST(String tab, String nl) {
+    this();
     this.tab = tab;
     this.nl = nl;
   }
@@ -62,9 +66,9 @@ class AST {
    * @param debug - Whether to print debug information.
    */
   AST(String tab, String nl, boolean debug) {
+    this(debug);
     this.tab = tab;
-    this.nl = nl;
-    this.debug = debug;
+    
   }
 
   
@@ -97,7 +101,7 @@ class AST {
       this.children = children;
       
       if (debug) {
-        System.out.println("  <@@@> Program created with children: " + children + " <@@@>");
+        System.err.println("  <AST> Program created with children: " + children);
       }
     }
 
@@ -126,7 +130,7 @@ class AST {
       sentences.add(first);
       
       if (debug) {
-        System.out.println("  <@@@> SentenceList created with first sentence: " + first + " <@@@>");
+        System.err.println("  <AST> SentenceList created with first sentence: " + first);
       }
     }
 
@@ -174,7 +178,7 @@ class AST {
       this.falseSentence = falseBranch;
       
       if (debug) {
-        System.out.println("  <@@@> If created with condition: " + condition + ", true branch: " + trueBranch + ", and false branch: " + falseBranch + " <@@@>");
+        System.err.println("  <AST> If created with condition: " + condition + ", true branch: " + trueBranch + ", and false branch: " + falseBranch);
       }
     }
 
@@ -222,7 +226,7 @@ class AST {
       this.body = body;
       
       if (debug) {
-        System.out.println("  <@@@> While created with condition: " + condition + " and body: " + body + " <@@@>");
+        System.err.println("  <AST> While created with condition: " + condition + " and body: " + body);
       }
     }
 
@@ -266,7 +270,7 @@ class AST {
       this.body = body;
 
       if (debug) {
-        System.out.println("  <@@@> DoWhile created with condition: " + condition + " and body: " + body + " <@@@>");
+        System.err.println("  <AST> DoWhile created with condition: " + condition + " and body: " + body);
       }
     }
 
@@ -311,7 +315,7 @@ class AST {
       this.body = body;
 
       if (debug) {
-        System.out.println("  <@@@> For created with init: " + init + ", condition: " + condition + ", update: " + update + ", and body: " + body + " <@@@>");
+        System.err.println("  <AST> For created with init: " + init + ", condition: " + condition + ", update: " + update + ", and body: " + body);
       }
     }
 
@@ -356,7 +360,7 @@ class AST {
       this.expression = expression;
 
       if (debug) {
-        System.out.println("  <@@@> Print created with expression: " + expression + " <@@@>");
+        System.err.println("  <AST> Print created with expression: " + expression);
       }
     }
 
@@ -430,7 +434,7 @@ class AST {
       super(value);
 
       if (debug) {
-        System.out.println("  <@@@> NumericLiteral created with value: " + value + " <@@@>");
+        System.err.println("  <AST> NumericLiteral created with value: " + value);
       }
     }
   }
@@ -449,7 +453,7 @@ class AST {
       super(scopeTable.get(id));
 
       if (debug) {
-        System.out.println("  <@@@> Identifier created with value: " + id + " <@@@>");
+        System.err.println("  <AST> Identifier created with value: " + id);
       }
     }
   }
@@ -473,7 +477,7 @@ class AST {
       this.expression = expression;
 
       if (debug) {
-        System.out.println("  <@@@> Declaration created with id: " + id + " and expression: " + expression + " <@@@>");
+        System.err.println("  <AST> Declaration created with id: " + id + " and expression: " + expression);
       }
     }
 
@@ -483,10 +487,12 @@ class AST {
      * @return The TAC code for the assignment expression.
      */
     public String gen() {
+      if (expression == null) {
+        return ""; // Variables are initialized to 0 by default.
+      }
       String expressionCode = expression.gen();
-      Object value = expression == null ? "0" : expression.toString();
       return expressionCode +
-        tab + holder + " = " + value + ";" + nl;
+        tab + holder + " = " + expression + ";" + nl;
     }
   }
 
@@ -498,7 +504,7 @@ class AST {
       declarations.add(new Declaration(firstId, firstExpression));
 
       if (debug) {
-        System.out.println("  <@@@> DeclarationList created with first id: " + firstId + " and first expression: " + firstExpression + " <@@@>");
+        System.err.println("  <AST> DeclarationList created with first id: " + firstId + " and first expression: " + firstExpression);
       }
     }
 
@@ -530,12 +536,12 @@ class AST {
      * @param expression - The expression to be assigned to the identifier.
      */
     public Assignment(String id, Expression expression) {
-      super(scopeTable.get(id));
-      this.holder = this.getValue();
+      super(expression.getValue());
+      this.holder = scopeTable.get(id);
       this.expression = expression;
 
       if (debug) {
-        System.out.println("  <@@@> Assignment created with id: " + id + " and expression: " + expression + " <@@@>");
+        System.err.println("  <AST> Assignment created with id: " + id + " and expression: " + expression);
       }
     }
 
@@ -576,7 +582,7 @@ class AST {
       this.op = op;
 
       if (debug) {
-        System.out.println("  <@@@> BinaryArithmetic created with left: " + left + ", right: " + right + ", and op: " + op + " <@@@>");
+        System.err.println("  <AST> BinaryArithmetic created with left: " + left + ", right: " + right + ", and op: " + op);
       }
     }
 
@@ -611,7 +617,7 @@ class AST {
       this.expression = expression;
 
       if (debug) {
-        System.out.println("  <@@@> UnaryMinus created with expression: " + expression + " <@@@>");
+        System.err.println("  <AST> UnaryMinus created with expression: " + expression);
       }
     }
 
@@ -672,7 +678,7 @@ class AST {
       }
 
       if (debug) {
-        System.out.println("  <@@@> BinaryCondition created with left: " + left + ", right: " + right + ", and op: " + op + " <@@@>");
+        System.err.println("  <AST> BinaryCondition created with left: " + left + ", right: " + right + ", and op: " + op);
       }
     }
 
@@ -706,7 +712,7 @@ class AST {
       this.condition = condition;
 
       if (debug) {
-        System.out.println("  <@@@> Not created with condition: " + condition + " <@@@>");
+        System.err.println("  <AST> Not created with condition: " + condition);
       }
     }
 
@@ -737,7 +743,7 @@ class AST {
       this.right = right;
 
       if (debug) {
-        System.out.println("  <@@@> Or created with left: " + left + " and right: " + right + " <@@@>");
+        System.err.println("  <AST> Or created with left: " + left + " and right: " + right);
       }
     }
 
@@ -778,7 +784,7 @@ class AST {
       this.right = right;
 
       if (debug) {
-        System.out.println("  <@@@> And created with left: " + left + " and right: " + right + " <@@@>");
+        System.err.println("  <AST> And created with left: " + left + " and right: " + right);
       }
     }
 

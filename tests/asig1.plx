@@ -8,5 +8,6 @@ y=2;
 {
     p = q = 2;
     zeta = p+q;
+    int q = 3;
 }
 print (zeta+x/y);

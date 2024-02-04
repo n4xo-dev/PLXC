@@ -23,6 +23,7 @@ public class ScopeTable {
   private Stack<HashSet<String>> scopes; // Stack of sets of variables in each scope
   private int tempCount;
   private int labelCount;
+  private boolean debug;
 
   /**
    * Constructs a new symbol table.
@@ -35,11 +36,20 @@ public class ScopeTable {
     labelCount = 0;
   }
 
+  public ScopeTable(boolean debug) {
+    this();
+    this.debug = debug;
+  }
+
   /**
    * Pushes a new scope to the symbol table.
    */
   public void pushScope() {
     scopes.push(new HashSet<String>());
+
+    if (debug) {
+      System.err.println(" [[SCOPE]] New scope: " + scopes.peek());
+    }
   }
 
   /**
@@ -48,6 +58,9 @@ public class ScopeTable {
    * All variables in the popped scope are removed from the table.
    */
   public void popScope() {
+    if (debug) {
+      System.err.println(" [[SCOPE]] Popping scope: " + scopes.peek());
+    }
     for (String key : scopes.pop()) {
       remove(key);
     }
@@ -68,6 +81,10 @@ public class ScopeTable {
    * @return The name of the variable in the table.
    */
   public String add(String key) {
+    if (debug) {
+      System.err.println(" [[SCOPE]] Adding " + key + " to scope: " + scopes.peek());
+    }
+
     if (scopes.peek().contains(key)) {
       throw new RuntimeException("Variable " + key + " already declared in this scope");
     }
