@@ -339,9 +339,9 @@ class AST {
    * and a body.
    */
   public class For extends Node {
-    private Node init;
+    private Node init; // Can be null.
     private Condition condition;
-    private Node update;
+    private Node update; // Can be null.
     private Node body;
 
     /**
@@ -377,9 +377,9 @@ class AST {
       String l1 = symTable.newLabel();
       String l2 = symTable.newLabel();
       String l3 = symTable.newLabel();
-      String initCode = init.gen();
+      String initCode = init == null ? "" : init.gen();
       String conditionCode = condition.gen(l2, l3);
-      String updateCode = update.gen();
+      String updateCode = update == null ? "" : update.gen();
       String bodyCode = body.gen();
       return initCode +
           l1 + ":" + nl +
@@ -422,8 +422,9 @@ class AST {
      */
     public String gen() {
       String expressionCode = expression.gen();
+      String print = expression.getType() == Type.CHAR ? "printc " : "print ";
       return expressionCode +
-          tab + "print " + expression + ";" + nl;
+          tab + print + expression + ";" + nl;
     }
   }
 
@@ -515,6 +516,18 @@ class AST {
     }
   }
 
+  public class CharLiteral extends Expression {
+
+    public CharLiteral(String value) {
+      super(Type.CHAR, Type.getCharCode(value));
+
+      if (debug) {
+        System.err.println(
+            "  <AST> CharLiteral created with value: " + value + " and type: " + this.getType());
+      }
+    }
+  }
+
   /**
    * The Identifier class represents an identifier expression in the AST.
    * It contains the name of the identifier.
@@ -544,6 +557,7 @@ class AST {
     private String holder; // The identifier that holds the result of the expression. (holder of the
                            // variable)
     private Expression expression; // Can be null. (I.e., the variable is initialized to 0.)
+    private String implicitCast = "";
 
     /**
      * Constructor for the Assignment class.
@@ -551,21 +565,30 @@ class AST {
      * @param id         - The identifier that holds the result of the expression.
      * @param expression - The expression to be assigned to the identifier.
      */
-    public Declaration(Type type, String id, Expression expression) {
+    public Declaration(Type type, String id, Expression expression) throws RuntimeException {
       super(type, symTable.add(type, id));
       this.holder = this.getValue();
       this.expression = expression;
 
-      if (expression != null) {
-        if (symTable.isTemp(expression.getValue())
-            && symTable.getTypeOfTemp(expression.getValue()) != type) {
-          throw new RuntimeException("Incompatible types: Assigning " + expression.getValue() + "("
-              + symTable.getTypeOf(expression.getValue()) + ") to " + type + " " + id + "\n\t" + symTable);
-        } else if (!type.check(expression.getValue())) {
-          throw new RuntimeException("Incompatible types: Assigning " + expression.getValue() + "("
-              + symTable.getTypeOf(expression.getValue()) + ") to " + type + " " + id + "\n\t" + symTable);
+      // Check if the types are compatible. And perform implicit casting if necessary.
+      if (expression == null) {
+        return; // Variables are initialized to 0 by default.
+      }
+      if (this.getType() != expression.getType()) {
+        if (this.getType() == Type.FLOAT) {
+          if (expression.getType() == Type.INT) {
+            String temp = symTable.newTemp(Type.FLOAT);
+            this.implicitCast = tab + temp + " = (float) " + expression + ";" + nl;
+          } else {
+            throw new RuntimeException("A1 Incompatible types: " + this.getType() + " and " + expression.getType());
+          }
+        } else if (this.getType() == Type.INT && (expression.getType() != Type.INT || expression.getType() == Type.CHAR)) {
+          throw new RuntimeException("A2 Incompatible types: " + this.getType() + " and " + expression.getType());
+        } else if (this.getType() == Type.CHAR && expression.getType() != Type.CHAR) { // TODO: interoperate with int
+          throw new RuntimeException("A3 Incompatible types: " + this.getType() + " and " + expression.getType());
         }
       }
+
       if (debug) {
         System.err.println("  <AST> Declaration of type " + type + " created with id: " + id + " and expression: "
             + expression + "\n\t" + symTable);
@@ -584,7 +607,7 @@ class AST {
         return ""; // Variables are initialized to 0 by default.
       }
       String expressionCode = expression.gen();
-      return expressionCode +
+      return expressionCode + implicitCast +
           tab + holder + " = " + expression + ";" + nl;
     }
   }
@@ -627,6 +650,7 @@ class AST {
     private String holder; // The identifier that holds the result of the expression. (holder of the
                            // variable)
     private Expression expression;
+    private String implicitCast = "";
 
     /**
      * Constructor for the Assignment class.
@@ -634,18 +658,26 @@ class AST {
      * @param id         - The identifier that holds the result of the expression.
      * @param expression - The expression to be assigned to the identifier.
      */
-    public Assignment(String id, Expression expression) {
+    public Assignment(String id, Expression expression) throws RuntimeException {
       super(symTable.getTypeOf(id), expression.getValue());
       this.holder = symTable.getHolderOf(id);
       this.expression = expression;
 
-      if (symTable.isTemp(expression.getValue())
-          && symTable.getTypeOfTemp(expression.getValue()) != this.getType()) {
-        throw new RuntimeException("Incompatible types: Assigning " + expression.getValue() + "("
-            + symTable.getTypeOfTemp(expression.getValue()) + ") to " + this.getType() + " " + id + "\n\t" + symTable);
-      } else if (this.getType() != expression.getType()) {
-        throw new RuntimeException("Incompatible types: Assigning " + expression.getValue() + "("
-            + expression.getType() + ") to " + this.getType() + " " + id + "\n\t" + symTable);
+      // Check if the types are compatible. And perform implicit casting if necessary.
+      if (this.getType() != expression.getType()) {
+        if (this.getType() == Type.FLOAT) {
+          if (expression.getType() == Type.INT) {
+            String temp = symTable.newTemp(Type.FLOAT);
+            this.implicitCast = tab + temp + " = (float) " + expression + ";" + nl;
+            this.expression = new Declaration(Type.FLOAT, temp, expression);
+          } else {
+            throw new RuntimeException("A1 Incompatible types: " + this.getType() + " and " + expression.getType());
+          }
+        } else if (this.getType() == Type.INT && (expression.getType() != Type.INT || expression.getType() == Type.CHAR)) {
+          throw new RuntimeException("A2 Incompatible types: " + this.getType() + " and " + expression.getType());
+        } else if (this.getType() == Type.CHAR && expression.getType() != Type.CHAR) { // TODO: interoperate with int
+          throw new RuntimeException("A3 Incompatible types: " + this.getType() + " and " + expression.getType());
+        }
       }
 
       if (debug) {
@@ -663,8 +695,33 @@ class AST {
      */
     public String gen() {
       String expressionCode = expression.gen();
-      return expressionCode +
+      return expressionCode + implicitCast +
           tab + holder + " = " + expression + ";" + nl;
+    }
+  }
+
+  public class Cast extends Expression {
+    private Expression expression;
+
+    public Cast(Type type, Expression expression) {
+      super(type, type.isCastUnnecessary(expression.getType()) ? expression.getValue() : symTable.newTemp(type));
+      this.expression = expression;
+
+      this.getType().checkCastable(type);
+
+      if (debug) {
+        System.err.println("  <AST> Cast created with expression: " + expression + " (" + this.getType() + ")"
+            + "\n\t" + symTable);
+      }
+    }
+
+    public String gen() {
+      String expressionCode = expression.gen();
+      if (this.getType().isCastUnnecessary(this.expression.getType())) {
+        return expressionCode;
+      }
+      return expressionCode + 
+        tab + this.getValue() + " = " + "(" + this.getType().getJavaType() + ") " + expression + ";" + nl;
     }
   }
 
@@ -679,7 +736,7 @@ class AST {
     private Expression right;
     private String op;
     private String temp;
-
+    private String implicitCast = "";
     /**
      * Constructor for the BinaryArithmetic class.
      * 
@@ -687,13 +744,48 @@ class AST {
      * @param right - The right-hand side expression of the arithmetic expression.
      * @param op    - The operator of the arithmetic expression.
      */
-    public BinaryArithmetic(Expression left, Expression right, String op) {
+    public BinaryArithmetic(Expression left, Expression right, String op) throws RuntimeException {
       super(Type.getPrevalentType(left.getType(), right.getType()),
           symTable.newTemp(Type.getPrevalentType(left.getType(), right.getType())));
       this.temp = this.getValue();
       this.left = left;
       this.right = right;
       this.op = this.getType() == Type.FLOAT ? op + "r" : op;
+
+      // Check if the types are compatible. And perform implicit casting if necessary.
+      if (this.getType() != left.getType()) {
+        if (this.getType() == Type.FLOAT) {
+          if (left.getType() == Type.INT) {
+            String temp = symTable.newTemp(Type.FLOAT);
+            this.implicitCast = tab + temp + " = (float) " + left + ";" + nl;
+            left = new Declaration(Type.FLOAT, temp, left);
+          } else {
+            throw new RuntimeException("BA1 Incompatible types: " + this.getType() + " and " + left.getType());
+          }
+        } else if (this.getType() == Type.INT){
+          if (left.getType() != Type.CHAR) {
+            throw new RuntimeException("BA2 Incompatible types: " + this.getType() + " and " + left.getType());
+          }
+        } else {
+          throw new RuntimeException("BA3 Incompatible types: " + this.getType() + " and " + left.getType());
+        }
+      } else if (this.getType() != right.getType()) {
+        if (this.getType() == Type.FLOAT) {
+          if (right.getType() == Type.INT) {
+            String temp = symTable.newTemp(Type.FLOAT);
+            this.implicitCast += tab + temp + " = (float) " + right + ";" + nl;
+            right = new Declaration(Type.FLOAT, temp, right);
+          } else {
+            throw new RuntimeException("BA4 Incompatible types: " + this.getType() + " and " + right.getType());
+          }
+        } else if (this.getType() == Type.INT){
+          if (right.getType() != Type.CHAR) {
+            throw new RuntimeException("BA5 Incompatible types: " + this.getType() + " and " + right.getType());
+          }
+        } else {
+          throw new RuntimeException("BA6 Incompatible types: " + this.getType() + " and " + right.getType());
+        }
+      }
 
       if (debug) {
         System.err
@@ -712,7 +804,7 @@ class AST {
     public String gen() {
       String leftCode = left.gen();
       String rightCode = right.gen();
-      return leftCode + rightCode +
+      return leftCode + rightCode + implicitCast +
           tab + temp + " = " + left + " " + op + " " + right + ";" + nl;
     }
   }

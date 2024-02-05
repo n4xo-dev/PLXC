@@ -3,21 +3,19 @@ import java.lang.String;
 import java.util.ArrayList;
 import java.util.List;
 
-// parser code {:
-// 	public void syntax_error(Symbol cur_token){
-//     System.err.println( "Syntax error:"  );
-//     // report_error("Syntax error", null);
-//     ast.printTable();
-//     done_parsing();
-// 	}
+parser code {:
+	public void syntax_error(Symbol cur_token){
+    System.err.println("Syntax error");
+    // report_error("Syntax error", null);
+    done_parsing();
+	}
 
-// 	public void unrecovered_syntax_error(Symbol cur_token){
-// 		System.err.println( "Syntax error:"  );
-// 		// report_error("Syntax error", null);
-//     ast.printTable();
-// 		done_parsing();
-// 	}
-// :};
+	public void unrecovered_syntax_error(Symbol cur_token){
+		System.err.println("Syntax error");
+		// report_error("Syntax error", null);
+		done_parsing();
+	}
+:};
 
 action code {:
   AST ast = new AST();
@@ -65,6 +63,7 @@ precedence left PLUS_PLUS, MINUS_MINUS;
 precedence left PLUS_EQ, MINUS_EQ, MULT_EQ, DIV_EQ, MOD_EQ;
 precedence nonassoc MINUS_SIGN;
 precedence nonassoc O_PAR, C_PAR;
+precedence nonassoc CAST_INT, CAST_FLOAT, CAST_CHAR;
 precedence nonassoc O_BRACK, C_BRACK;
 
 
@@ -103,6 +102,15 @@ sentence ::= declarationList:d SEMICOLON {:
   | FOR O_PAR expression:i SEMICOLON condition:c SEMICOLON expression:u C_PAR sentence:s {:
     RESULT = ast.new For(i, c, u, s);
   :}
+  | FOR O_PAR SEMICOLON condition:c SEMICOLON expression:u C_PAR sentence:s {:
+    RESULT = ast.new For(null, c, u, s);
+  :}
+  | FOR O_PAR expression:i SEMICOLON condition:c SEMICOLON C_PAR sentence:s {:
+    RESULT = ast.new For(i, c, null, s);
+  :}
+  | FOR O_PAR SEMICOLON condition:c SEMICOLON C_PAR sentence:s {:
+    RESULT = ast.new For(null, c, null, s);
+  :}
   | PRINT O_PAR expression:e C_PAR SEMICOLON {:
     RESULT = ast.new Print(e);
   :}
@@ -113,16 +121,44 @@ sentence ::= declarationList:d SEMICOLON {:
   ;
 
 declarationList ::= type:t ID:id {:
-    RESULT = ast.new DeclarationList(t, id, null);
+    try {
+      RESULT = ast.new DeclarationList(t, id, null);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | declarationList:d COMA ID:id {:
-    RESULT = d.add(id, null);
+    try {
+      RESULT = d.add(id, null);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | type:t ID:id ASSIGN expression:e {:
-    RESULT = ast.new DeclarationList(t, id, e);
+    try {
+      RESULT = ast.new DeclarationList(t, id, e);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | declarationList:d COMA ID:id ASSIGN expression:e {:
-    RESULT = d.add(id, e);
+    try {
+      RESULT = d.add(id, e);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   ;
 
@@ -147,7 +183,23 @@ expression ::= arithmetic:a {:
     RESULT = e;
   :}
   | ID:id ASSIGN expression:e {:
-    RESULT = ast.new Assignment(id, e);
+    try {
+      RESULT = ast.new Assignment(id, e);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
+  :}
+  | CAST_INT expression:e {:
+    RESULT = ast.new Cast(Type.INT, e);
+  :}
+  | CAST_FLOAT expression:e {:
+    RESULT = ast.new Cast(Type.FLOAT, e);
+  :}
+  | CAST_CHAR expression:e {:
+    RESULT = ast.new Cast(Type.CHAR, e);
   :}
   | ID:id {:
     RESULT = ast.new Identifier(id);
@@ -158,19 +210,50 @@ expression ::= arithmetic:a {:
   | FLOAT_CONST:c {:
     RESULT = ast.new NumericLiteral(Type.FLOAT, c);
   :}
+  | CHAR_CONST:c {:
+    RESULT = ast.new CharLiteral(c);
+  :}
   ;
 
 arithmetic ::= expression:e1 PLUS expression:e2 {:
-    RESULT = ast.new BinaryArithmetic(e1, e2, "+");
+    try {
+      RESULT = ast.new BinaryArithmetic(e1, e2, "+");
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | expression:e1 MINUS expression:e2 {:
-    RESULT = ast.new BinaryArithmetic(e1, e2, "-");
+    try {
+      RESULT = ast.new BinaryArithmetic(e1, e2, "-");
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | expression:e1 MULT expression:e2 {:
-    RESULT = ast.new BinaryArithmetic(e1, e2, "*");
+    try {
+      RESULT = ast.new BinaryArithmetic(e1, e2, "*");
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | expression:e1 DIV expression:e2 {:
-    RESULT = ast.new BinaryArithmetic(e1, e2, "/");
+    try {
+      RESULT = ast.new BinaryArithmetic(e1, e2, "/");
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   | MINUS expression:e {:
     RESULT = ast.new UnaryMinus(e);
