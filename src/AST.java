@@ -549,6 +549,38 @@ class AST {
     }
   }
 
+  public class ArrayAccess extends Expression {
+    private String holder;
+    private String arrayHolder;
+    private Expression index;
+
+    public ArrayAccess(String id, Expression index) {
+      super(symTable.getTypeOf(id), symTable.newTemp(symTable.getTypeOf(id)));
+      this.holder = this.getValue();
+      this.arrayHolder = symTable.getHolderOf(id);
+      this.index = index;
+
+      if (debug) {
+        System.err.println("  <AST> ArrayAccess created with id: " + id + " and index: " + index + "\n\t" + symTable);
+      }
+    }
+
+    public String gen() {
+      String indexCode = index.gen();
+      String l0 = symTable.newLabel();
+      String l1 = symTable.newLabel();
+      return indexCode +
+          tab + "if (" + index + " < 0) goto " + l0 + ";" + nl +
+          tab + "if ($" + holder + "_length < " + index + ") goto " + l0 + ";" + nl +
+          tab + "if ($" + holder + "_length == " + index + ") goto " + l0 + ";" + nl +
+          tab + "goto " + l1 + ";" + nl +
+          l0 + ":" + nl +
+          tab + "error;" + nl + tab + "halt;" + nl +
+          l1 + ":" + nl +  
+          tab + holder + " = " + arrayHolder + "[" + index + "];" + nl;
+    }
+  }
+
   /**
    * The Declaration class represents a declaration expression in the AST.
    * It contains an identifier and an expression.
@@ -609,6 +641,25 @@ class AST {
       String expressionCode = expression.gen();
       return expressionCode + implicitCast +
           tab + holder + " = " + expression + ";" + nl;
+    }
+  }
+
+  public class ArrayDeclaration extends Expression {
+    private String holder;
+    private int size;
+
+    public ArrayDeclaration(Type type, String id, String size) {
+      super(type, symTable.add(type, id));
+      this.holder = this.getValue();
+      this.size = Integer.parseInt(size);
+
+      if (debug) {
+        System.err.println("  <AST> ArrayDeclaration created with id: " + id + " and size: " + size + "\n\t" + symTable);
+      }
+    }
+
+    public String gen() {
+      return tab + "$" + holder + "_length = " + size + ";" + nl;
     }
   }
 
@@ -697,6 +748,44 @@ class AST {
       String expressionCode = expression.gen();
       return expressionCode + implicitCast +
           tab + holder + " = " + expression + ";" + nl;
+    }
+  }
+
+  public class ArrayAssignment extends Expression {
+    private String holder;
+    private Expression index;
+    private Expression expression;
+
+    public ArrayAssignment(String id, Expression index, Expression expression) {
+      super(symTable.getTypeOf(id), expression.getValue());
+      this.holder = symTable.getHolderOf(id);
+      this.index = index;
+      this.expression = expression;
+
+      if (this.getType() != expression.getType()) {
+        throw new RuntimeException("Incompatible types: " + this.getType() + " and " + expression.getType());
+      }
+
+      if (debug) {
+        System.err.println("  <AST> ArrayAssignment created with id: " + id + " and expression: " + expression
+            + "\n\t" + symTable);
+      }
+    }
+
+    public String gen() {
+      String indexCode = index.gen();
+      String expressionCode = expression.gen();
+      String l0 = symTable.newLabel();
+      String l1 = symTable.newLabel();
+      return indexCode + expressionCode +
+          tab + "if (" + index + " < 0) goto " + l0 + ";" + nl +
+          tab + "if ($" + holder + "_length < " + index + ") goto " + l0 + ";" + nl +
+          tab + "if ($" + holder + "_length == " + index + ") goto " + l0 + ";" + nl +
+          tab + "goto " + l1 + ";" + nl +
+          l0 + ":" + nl +
+          tab + "error;" + nl + tab + "halt;" + nl +
+          l1 + ":" + nl +  
+          tab + holder + "[" + index + "] = " + expression + ";" + nl;
     }
   }
 

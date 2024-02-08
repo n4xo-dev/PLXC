@@ -84,6 +84,16 @@ sentenceList ::= sentence:s {:
 sentence ::= declarationList:d SEMICOLON {:
     RESULT = d;
   :}
+  | type:t ID:id O_BRACK INT_CONST:c C_BRACK SEMICOLON {:
+    try {
+      RESULT = ast.new ArrayDeclaration(t, id, c);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
+  :}
   | expression:e SEMICOLON {:
     RESULT = e;
   :}
@@ -192,6 +202,16 @@ expression ::= arithmetic:a {:
       throw ex;
     }
   :}
+  | ID:id O_BRACK expression:e C_BRACK ASSIGN expression:e2 {:
+    try {
+      RESULT = ast.new ArrayAssignment(id, e, e2);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
+  :}
   | CAST_INT expression:e {:
     RESULT = ast.new Cast(Type.INT, e);
   :}
@@ -203,6 +223,9 @@ expression ::= arithmetic:a {:
   :}
   | ID:id {:
     RESULT = ast.new Identifier(id);
+  :}
+  | ID:id O_BRACK expression:e C_BRACK {:
+    RESULT = ast.new ArrayAccess(id, e);
   :}
   | INT_CONST:c {:
     RESULT = ast.new NumericLiteral(Type.INT, c);
