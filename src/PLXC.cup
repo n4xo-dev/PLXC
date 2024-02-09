@@ -90,7 +90,17 @@ sentence ::= declarationList:d SEMICOLON {:
   :}
   | type:t ID:id O_BRACK INT_CONST:c C_BRACK SEMICOLON {: // Array declaration
     try {
-      RESULT = ast.new ArrayDeclaration(t, id, c);
+      RESULT = ast.new ArrayDeclaration(t, id, c, null);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
+  :}
+  | type:t ID:id O_BRACK INT_CONST:c C_BRACK ASSIGN O_CURL arrayList:a C_CURL SEMICOLON {:
+    try {
+      RESULT = ast.new ArrayDeclaration(t, id, c, a);
     } catch (Exception ex) {
       PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
       PLXC.out.print("   error;\n   halt;\n");
@@ -124,6 +134,9 @@ sentence ::= declarationList:d SEMICOLON {:
   :}
   | FOR O_PAR SEMICOLON condition:c SEMICOLON C_PAR sentence:s {:
     RESULT = ast.new For(null, c, null, s);
+  :}
+  | PRINT O_PAR O_CURL arrayList:a C_CURL C_PAR SEMICOLON {:
+    RESULT = ast.new Print(a);
   :}
   | PRINT O_PAR expression:e C_PAR SEMICOLON {:
     RESULT = ast.new Print(e);
@@ -249,6 +262,9 @@ expression ::= arithmetic:a {:
   :}
   | CHAR_CONST:c {:
     RESULT = ast.new CharLiteral(c);
+  :}
+  | ID:id DOT LENGTH {:
+    RESULT = ast.new Length(id);
   :}
   ;
 

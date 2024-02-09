@@ -423,8 +423,23 @@ class AST {
     public String gen() {
       String expressionCode = expression.gen();
       String print = expression.getType() == Type.CHAR ? "printc " : "print ";
-      return expressionCode +
-          tab + print + expression + ";" + nl;
+      String action = "";
+      if (expression instanceof Identifier && symTable.isArray(expression.getValue())) {
+        int length = symTable.getSizeOfArray(expression.getValue());
+        for (int i = 0; i < length; i++) {
+          String temp = symTable.newTemp(expression.getType());
+          action += tab + temp + " = " + expression.getValue() + "[" + i + "];" + nl;
+          action += tab + print + temp + ";" + nl;
+        }
+      } else if(expression instanceof ArrayLiteralList) {
+        for (Expression e : ((ArrayLiteralList) expression).expressions) {
+          action += e.gen();
+          action += tab + print + e + ";" + nl;
+        }
+      } else {
+        action = tab + print + expression + ";" + nl;
+      }
+      return expressionCode + action;
     }
   }
 
@@ -562,6 +577,17 @@ class AST {
     }
   }
 
+  public class Length extends Expression {
+
+    public Length(String id) {
+      super(Type.INT, "$" + symTable.getHolderOf(id) + "_length");
+
+      if (debug) {
+        System.err.println("  <AST> Length created with id: " + id + "\n\t" + symTable);
+      }
+    }
+  }
+
   /**
    * The Identifier class represents an identifier expression in the AST.
    * It contains the name of the identifier.
@@ -637,21 +663,20 @@ class AST {
       this.expression = expression;
 
       // Check if the types are compatible. And perform implicit casting if necessary.
-      if (expression == null) {
-        return; // Variables are initialized to 0 by default.
-      }
-      if (this.getType() != expression.getType()) {
-        if (this.getType() == Type.FLOAT) {
-          if (expression.getType() == Type.INT) {
-            String temp = symTable.newTemp(Type.FLOAT);
-            this.implicitCast = tab + temp + " = (float) " + expression + ";" + nl;
-          } else {
-            throw new RuntimeException("A1 Incompatible types: " + this.getType() + " and " + expression.getType());
+      if (expression != null) {
+        if (this.getType() != expression.getType()) {
+          if (this.getType() == Type.FLOAT) {
+            if (expression.getType() == Type.INT) {
+              String temp = symTable.newTemp(Type.FLOAT);
+              this.implicitCast = tab + temp + " = (float) " + expression + ";" + nl;
+            } else {
+              throw new RuntimeException("A1 Incompatible types: " + this.getType() + " and " + expression.getType());
+            }
+          } else if (this.getType() == Type.INT && (expression.getType() != Type.INT || expression.getType() == Type.CHAR)) {
+            throw new RuntimeException("A2 Incompatible types: " + this.getType() + " and " + expression.getType());
+          } else if (this.getType() == Type.CHAR && expression.getType() != Type.CHAR) { // TODO: interoperate with int
+            throw new RuntimeException("A3 Incompatible types: " + this.getType() + " and " + expression.getType());
           }
-        } else if (this.getType() == Type.INT && (expression.getType() != Type.INT || expression.getType() == Type.CHAR)) {
-          throw new RuntimeException("A2 Incompatible types: " + this.getType() + " and " + expression.getType());
-        } else if (this.getType() == Type.CHAR && expression.getType() != Type.CHAR) { // TODO: interoperate with int
-          throw new RuntimeException("A3 Incompatible types: " + this.getType() + " and " + expression.getType());
         }
       }
 
@@ -673,16 +698,17 @@ class AST {
         return ""; // Variables are initialized to 0 by default.
       }
       String expressionCode = expression.gen();
-      return expressionCode + implicitCast +
-          tab + holder + " = " + expression + ";" + nl;
+      String action = tab + holder + " = " + expression + ";" + nl;
+      return expressionCode + implicitCast + action;
     }
   }
 
   public class ArrayDeclaration extends Expression {
     private String holder;
     private int size;
+    private Expression expression; // Can be null
 
-    public ArrayDeclaration(Type type, String id, String size) {
+    public ArrayDeclaration(Type type, String id, String size, Expression expression) {
       super(type, symTable.add(type, id));
       this.holder = this.getValue();
       try {
@@ -690,8 +716,16 @@ class AST {
       } catch (NumberFormatException e) {
         throw new RuntimeException("Invalid array size: " + size);
       }
+      this.expression = expression;
 
-      symTable.addArray(id);
+      symTable.addArray(id, this.size);
+
+      if (expression != null) {
+        if (this.getType() != expression.getType()) {
+          throw new RuntimeException("A0 Incompatible types: " + this.getType() + " and " + expression.getType());
+        }
+      }
+        
 
       if (debug) {
         System.err.println("  <AST> ArrayDeclaration created with id: " + id + " and size: " + size + "\n\t" + symTable);
@@ -699,7 +733,26 @@ class AST {
     }
 
     public String gen() {
-      return tab + "$" + holder + "_length = " + size + ";" + nl;
+      String lengthDeclaration = tab + "$" + holder + "_length = " + size + ";" + nl;
+      String action = "";
+      if (expression != null) {
+        if (expression instanceof ArrayLiteralList) {
+          // Check for out of bounds
+          String l0 = symTable.newLabel();
+          String l1 = symTable.newLabel();
+          action += tab + "if ($" + holder + "_length != " + ((ArrayLiteralList) expression).expressions.size() + ") goto " + l0 + ";" + nl;
+          action += tab + "goto " + l1 + ";" + nl;
+          action += l0 + ":" + nl;
+          action += tab + "error;" + nl + tab + "halt;" + nl;
+          action += l1 + ":" + nl;
+          for (int i = 0; i < ((ArrayLiteralList) expression).expressions.size(); i++) {
+            action += tab + holder + "[" + i + "] = " + ((ArrayLiteralList) expression).expressions.get(i) + ";" + nl;
+          }
+        } else {
+          throw new RuntimeException("A1 Cannot assign to array " + holder + " with non-array expression");
+        }
+      }
+      return lengthDeclaration + action;
     }
   }
 
@@ -793,9 +846,28 @@ class AST {
     public String gen() {
       String expressionCode = expression.gen();
       String action = "";
-      if (symTable.isArray(holder) && expression instanceof ArrayLiteralList) {
-        for (int i = 0; i < ((ArrayLiteralList) expression).expressions.size(); i++) {
-          action += tab + holder + "[" + i + "] = " + ((ArrayLiteralList) expression).expressions.get(i) + ";" + nl;
+      if (symTable.isArray(holder)) {
+        if (expression instanceof ArrayLiteralList) {
+          // Check for out of bounds
+          String l0 = symTable.newLabel();
+          String l1 = symTable.newLabel();
+          action += tab + "if ($" + holder + "_length < " + ((ArrayLiteralList) expression).expressions.size() + ") goto " + l0 + ";" + nl;
+          action += tab + "goto " + l1 + ";" + nl;
+          action += l0 + ":" + nl;
+          action += tab + "error;" + nl + tab + "halt;" + nl;
+          action += l1 + ":" + nl;
+          for (int i = 0; i < ((ArrayLiteralList) expression).expressions.size(); i++) {
+            action += tab + holder + "[" + i + "] = " + ((ArrayLiteralList) expression).expressions.get(i) + ";" + nl;
+          }
+        } else if (expression instanceof Identifier) {
+          action = tab + "if ($" + holder + "_length < $" + ((Identifier) expression).getValue() + "_length) goto l0;" + nl;
+          action += tab + "goto l1;" + nl;
+          action += "l0:" + nl;
+          action += tab + "error;" + nl + tab + "halt;" + nl;
+          action += "l1:" + nl;
+          action += tab + holder + " = " + expression + ";" + nl;
+        } else {
+          throw new RuntimeException("A5 Cannot assign to array " + holder + " with non-array expression");
         }
       } else {
         action = tab + holder + " = " + expression + ";" + nl;
