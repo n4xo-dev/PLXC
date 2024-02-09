@@ -5,16 +5,19 @@ import java.util.List;
 
 parser code {:
 	public void syntax_error(Symbol cur_token){
-    System.err.println("Syntax error");
-    // report_error("Syntax error", null);
+    PLXC.out.println("# ERROR: Syntax error at token " + cur_token.value);
+    PLXC.out.print("   error;\n   halt;\n");
+    System.exit(0);
+    report_error("Syntax error", null);
     done_parsing();
 	}
 
-	public void unrecovered_syntax_error(Symbol cur_token){
-		System.err.println("Syntax error");
-		// report_error("Syntax error", null);
-		done_parsing();
-	}
+	// public void unrecovered_syntax_error(Symbol cur_token){
+	// 	System.err.println("Syntax error");
+  //   PLXC.out.print("   error;\n   halt;\n");
+	// 	// report_error("Syntax error", null);
+	// 	done_parsing();
+	// }
 :};
 
 action code {:
@@ -45,6 +48,7 @@ non terminal AST.Node sentence;
 non terminal AST.DeclarationList declarationList;
 non terminal AST.Expression expression;
 non terminal AST.Expression arithmetic;
+non terminal AST.ArrayLiteralList arrayList;
 non terminal AST.Condition condition;
 non terminal Type type;
 
@@ -84,7 +88,7 @@ sentenceList ::= sentence:s {:
 sentence ::= declarationList:d SEMICOLON {:
     RESULT = d;
   :}
-  | type:t ID:id O_BRACK INT_CONST:c C_BRACK SEMICOLON {:
+  | type:t ID:id O_BRACK INT_CONST:c C_BRACK SEMICOLON {: // Array declaration
     try {
       RESULT = ast.new ArrayDeclaration(t, id, c);
     } catch (Exception ex) {
@@ -202,9 +206,19 @@ expression ::= arithmetic:a {:
       throw ex;
     }
   :}
+  | ID:id ASSIGN O_CURL arrayList:a C_CURL {:
+    try {
+      RESULT = ast.new Assignment(id, a);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
+  :}
   | ID:id O_BRACK expression:e C_BRACK ASSIGN expression:e2 {:
     try {
-      RESULT = ast.new ArrayAssignment(id, e, e2);
+      RESULT = ast.new ArrayElementAssignment(id, e, e2);
     } catch (Exception ex) {
       PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
       PLXC.out.print("   error;\n   halt;\n");
@@ -235,6 +249,21 @@ expression ::= arithmetic:a {:
   :}
   | CHAR_CONST:c {:
     RESULT = ast.new CharLiteral(c);
+  :}
+  ;
+
+arrayList ::= expression:e {:
+    RESULT = ast.new ArrayLiteralList(e);
+  :}
+  | arrayList:a COMA expression:e {:
+    try {
+      RESULT = a.add(e);
+    } catch (Exception ex) {
+      PLXC.out.print("# ERROR: " + ex.getMessage() + "\n");
+      PLXC.out.print("   error;\n   halt;\n");
+      System.exit(0);
+      throw ex;
+    }
   :}
   ;
 

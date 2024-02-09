@@ -528,6 +528,40 @@ class AST {
     }
   }
 
+  public class ArrayLiteralList extends Expression {
+    private List<Expression> expressions;
+
+    public ArrayLiteralList(Expression first) {
+      super(first.getType(), null);
+      expressions = new ArrayList<Expression>();
+      expressions.add(first);
+
+      if (debug) {
+        System.err.println("  <AST> ArrayLiteralList created with first expression: " + first + "\n\t" + symTable);
+      }
+    }
+
+    public ArrayLiteralList add(Expression expression) {
+      if (expression.getType() != this.getType()) {
+        throw new RuntimeException("ALL0 Incompatible types: " + this.getType() + " and " + expression.getType());
+      }
+      expressions.add(expression);
+      return this;
+    }
+
+    public Expression get(int index) {
+      return expressions.get(index);
+    }
+
+    public String gen() {
+      StringBuilder sb = new StringBuilder();
+      for (Expression expression : expressions) {
+        sb.append(expression.gen());
+      }
+      return sb.toString();
+    }
+  }
+
   /**
    * The Identifier class represents an identifier expression in the AST.
    * It contains the name of the identifier.
@@ -571,8 +605,8 @@ class AST {
       String l1 = symTable.newLabel();
       return indexCode +
           tab + "if (" + index + " < 0) goto " + l0 + ";" + nl +
-          tab + "if ($" + holder + "_length < " + index + ") goto " + l0 + ";" + nl +
-          tab + "if ($" + holder + "_length == " + index + ") goto " + l0 + ";" + nl +
+          tab + "if ($" + arrayHolder + "_length < " + index + ") goto " + l0 + ";" + nl +
+          tab + "if ($" + arrayHolder + "_length == " + index + ") goto " + l0 + ";" + nl +
           tab + "goto " + l1 + ";" + nl +
           l0 + ":" + nl +
           tab + "error;" + nl + tab + "halt;" + nl +
@@ -651,7 +685,13 @@ class AST {
     public ArrayDeclaration(Type type, String id, String size) {
       super(type, symTable.add(type, id));
       this.holder = this.getValue();
-      this.size = Integer.parseInt(size);
+      try {
+        this.size = Integer.parseInt(size);
+      } catch (NumberFormatException e) {
+        throw new RuntimeException("Invalid array size: " + size);
+      }
+
+      symTable.addArray(id);
 
       if (debug) {
         System.err.println("  <AST> ArrayDeclaration created with id: " + id + " and size: " + size + "\n\t" + symTable);
@@ -716,6 +756,9 @@ class AST {
 
       // Check if the types are compatible. And perform implicit casting if necessary.
       if (this.getType() != expression.getType()) {
+        if (symTable.isArray(id)) {
+          throw new RuntimeException("A0 Cannot assign to " + this.getType() + " array " + id + " with " + expression.getType());
+        }
         if (this.getType() == Type.FLOAT) {
           if (expression.getType() == Type.INT) {
             String temp = symTable.newTemp(Type.FLOAT);
@@ -730,6 +773,9 @@ class AST {
           throw new RuntimeException("A3 Incompatible types: " + this.getType() + " and " + expression.getType());
         }
       }
+      // if (symTable.isArray(id) && !(expression instanceof ArrayLiteralList)) {
+      //   throw new RuntimeException("A4 Cannot assign to array " + id + " with non-array expression");
+      // }
 
       if (debug) {
         System.err.println("  <AST> Assignment created with id: " + id + " (" + this.getType() + ") and expression: "
@@ -746,24 +792,43 @@ class AST {
      */
     public String gen() {
       String expressionCode = expression.gen();
-      return expressionCode + implicitCast +
-          tab + holder + " = " + expression + ";" + nl;
+      String action = "";
+      if (symTable.isArray(holder) && expression instanceof ArrayLiteralList) {
+        for (int i = 0; i < ((ArrayLiteralList) expression).expressions.size(); i++) {
+          action += tab + holder + "[" + i + "] = " + ((ArrayLiteralList) expression).expressions.get(i) + ";" + nl;
+        }
+      } else {
+        action = tab + holder + " = " + expression + ";" + nl;
+      }
+      return expressionCode + implicitCast + action;
     }
   }
 
-  public class ArrayAssignment extends Expression {
+  public class ArrayElementAssignment extends Expression {
     private String holder;
     private Expression index;
     private Expression expression;
 
-    public ArrayAssignment(String id, Expression index, Expression expression) {
+    public ArrayElementAssignment(String id, Expression index, Expression expression) {
       super(symTable.getTypeOf(id), expression.getValue());
       this.holder = symTable.getHolderOf(id);
       this.index = index;
       this.expression = expression;
 
+      // Check if the types are compatible. And perform implicit casting if necessary.
       if (this.getType() != expression.getType()) {
-        throw new RuntimeException("Incompatible types: " + this.getType() + " and " + expression.getType());
+        if (this.getType() == Type.FLOAT) {
+          if (expression.getType() == Type.INT) {
+            String temp = symTable.newTemp(Type.FLOAT);
+            this.expression = new Declaration(Type.FLOAT, temp, expression);
+          } else {
+            throw new RuntimeException("AA1 Incompatible types: " + this.getType() + " and " + expression.getType());
+          }
+        } else if (this.getType() == Type.INT && (expression.getType() != Type.INT || expression.getType() == Type.CHAR)) {
+          throw new RuntimeException("AA2 Incompatible types: " + this.getType() + " and " + expression.getType());
+        } else if (this.getType() == Type.CHAR && expression.getType() != Type.CHAR) { // TODO: interoperate with int
+          throw new RuntimeException("AA3 Incompatible types: " + this.getType() + " and " + expression.getType());
+        }
       }
 
       if (debug) {
