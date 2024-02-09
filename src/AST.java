@@ -436,6 +436,11 @@ class AST {
           action += e.gen();
           action += tab + print + e + ";" + nl;
         }
+      } else if (expression.getType() == Type.STRING) {
+        String str = expression.getValue();
+        for (int i = 0; i < str.length(); i++) {
+          action += tab + "writec " + (int) str.charAt(i) + ";" + nl;
+        }
       } else {
         action = tab + print + expression + ";" + nl;
       }
@@ -577,6 +582,18 @@ class AST {
     }
   }
 
+  public class StringLiteral extends Expression {
+
+    public StringLiteral(String value) {
+      super(Type.STRING, Type.deStringify(value));
+
+      if (debug) {
+        System.err.println(
+            "  <AST> StringLiteral created with value: " + value + " and type: " + this.getType());
+      }
+    }
+  }
+
   public class Length extends Expression {
 
     public Length(String id) {
@@ -658,7 +675,7 @@ class AST {
      * @param expression - The expression to be assigned to the identifier.
      */
     public Declaration(Type type, String id, Expression expression) throws RuntimeException {
-      super(type, symTable.add(type, id));
+      super(type, type == Type.STRING ? symTable.add(type, id, expression.getValue()) : symTable.add(type, id));
       this.holder = this.getValue();
       this.expression = expression;
 
@@ -694,7 +711,7 @@ class AST {
      * @return The TAC code for the assignment expression.
      */
     public String gen() {
-      if (expression == null) {
+      if (expression == null || this.getType() == Type.STRING) {
         return ""; // Variables are initialized to 0 by default.
       }
       String expressionCode = expression.gen();

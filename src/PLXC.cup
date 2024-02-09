@@ -263,6 +263,9 @@ expression ::= arithmetic:a {:
   | CHAR_CONST:c {:
     RESULT = ast.new CharLiteral(c);
   :}
+  | STRING_CONST:c {:
+    RESULT = ast.new StringLiteral(c);
+  :}
   | ID:id DOT LENGTH {:
     RESULT = ast.new Length(id);
   :}
